@@ -1202,11 +1202,13 @@ function adjustStickyColumns() {
     });
   }
 
-  // 2. Measure the actual natural auto-fit widths of each column
+  // 2. Measure the actual natural auto-fit widths of each column (ignoring spanned cells)
   for (var i = 0; i < 5; i++) {
     var cells = table.querySelectorAll(colClasses[i]);
     var maxW = 0;
     cells.forEach(function(cell) {
+      var colspan = cell.getAttribute('colspan');
+      if (colspan && parseInt(colspan, 10) > 1) return;
       var w = cell.getBoundingClientRect().width;
       if (w > maxW) maxW = w;
     });
