@@ -655,10 +655,11 @@ function updateFileUI() {
         '<svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:#f59e0b">'
         + '<path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>'
         + '</svg>'
-        + '<span class="text-xs text-amber-700 flex-1">Previously linked to <strong>' + escHtml(pendingHandle.name) + '</strong>. Click to reconnect.</span>'
+        + '<span class="text-xs text-amber-700 flex-1">Previously linked to <strong>' + escHtml(pendingHandle.name) + '</strong>. Reconnect or choose a different file.</span>'
         + '<button onclick="reconnectFile()" class="text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg transition-colors flex-shrink-0">'
         + 'Reconnect to ' + escHtml(pendingHandle.name) + '</button>'
-        + '<button onclick="linkFile(false)" class="text-xs text-amber-600 hover:underline flex-shrink-0">Use a different file</button>';
+        + '<button onclick="linkFile(true)"  class="text-xs font-semibold bg-white hover:bg-amber-100 text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg transition-colors flex-shrink-0">Create new file</button>'
+        + '<button onclick="linkFile(false)" class="text-xs font-semibold bg-white hover:bg-amber-100 text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg transition-colors flex-shrink-0">Open existing file</button>';
     }
 
   } else {
