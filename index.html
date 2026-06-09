@@ -643,7 +643,14 @@ function updateFileUI() {
 
   if (fileHandle) {
     // Connected — green name, banner hidden
-    if (status) { status.textContent = fileHandle.name; status.style.color = '#34d399'; }
+    if (status) {
+      status.textContent  = fileHandle.name;
+      status.style.color  = '#34d399';
+      status.style.cursor = 'pointer';
+      status.style.textDecoration = 'underline dotted';
+      status.title   = fileHandle.name + '\n\nClick to browse the containing folder.\n(Full path is hidden by the browser for security.)';
+      status.onclick = openFileFolder;
+    }
     if (banner)  banner.style.display = 'none';
 
   } else if (pendingHandle) {
@@ -664,7 +671,14 @@ function updateFileUI() {
 
   } else {
     // No file ever linked
-    if (status) { status.textContent = 'No file linked'; status.style.color = '#94a3b8'; }
+    if (status) {
+      status.textContent  = 'No file linked';
+      status.style.color  = '#94a3b8';
+      status.style.cursor = 'default';
+      status.style.textDecoration = 'none';
+      status.title  = '';
+      status.onclick = null;
+    }
     if (banner) {
       banner.style.display = '';
       banner.innerHTML =
@@ -701,6 +715,17 @@ async function reconnectFile() {
   } catch(e) {
     if (e.name !== 'AbortError') toast('Could not reconnect', 'error');
   }
+}
+
+// Open a file picker pre-navigated to the folder containing the linked file
+async function openFileFolder() {
+  if (!fileHandle) return;
+  try {
+    await window.showOpenFilePicker({
+      startIn: fileHandle,
+      types: [{ description: 'JSON File', accept: { 'application/json': ['.json'] } }],
+    });
+  } catch(_) { /* user cancelled — no action needed */ }
 }
 
 // ─── Database helpers ─────────────────────────────────────────
