@@ -63,33 +63,49 @@
     .modal-close-btn:hover { background: #f1f5f9; color: #475569; }
 
     /* ---- Sticky columns for Matrix view ---- */
-    .sticky-col-1 {
-      position: sticky; z-index: 10;
-      background-color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .sticky-col-2 {
-      position: sticky; z-index: 10;
-      background-color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .sticky-col-3 {
-      position: sticky; z-index: 10;
-      background-color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .sticky-col-4 {
-      position: sticky; z-index: 10;
-      background-color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
+    .sticky-col-1,
+    .sticky-col-2,
+    .sticky-col-3,
+    .sticky-col-4,
     .sticky-col-5 {
       position: sticky; z-index: 10;
       background-color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      border-right: 2px solid #cbd5e1 !important;
     }
     .sticky-col-span5 {
       position: sticky; z-index: 11;
-      background-color: inherit; border-right: 2px solid #cbd5e1 !important;
+      background-color: inherit;
     }
     .sticky-hdr {
       z-index: 15 !important;
+    }
+
+    /* Enforce visible grid lines with border-collapse: separate */
+    #m-table {
+      border-collapse: separate !important;
+      border-spacing: 0 !important;
+    }
+    #m-table td {
+      border-right: 1px solid #b2c0d2 !important;
+      border-bottom: 1px solid #b2c0d2 !important;
+    }
+    /* Left border on the first column */
+    #m-table td:first-child {
+      border-left: 1px solid #b2c0d2 !important;
+    }
+    /* Top border on the first row */
+    #m-table tr:first-child td {
+      border-top: 1px solid #b2c0d2 !important;
+    }
+
+    /* Specific overrides for frozen column 5 & spanned headers to show a thick, dark right boundary */
+    #m-table td.sticky-col-5,
+    #m-table td.sticky-col-span5 {
+      border-right: 3px solid #64748b !important;
+    }
+
+    /* Specific overrides for sticky headers to show a thick, dark bottom boundary */
+    #m-table td.sticky-hdr {
+      border-bottom: 2px solid #64748b !important;
     }
   </style>
 </head>
@@ -323,7 +339,7 @@
 
   <!-- Master Tracking Table -->
   <div style="overflow-x:auto;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-    <table id="m-table" style="border-collapse:collapse;white-space:nowrap;font-size:11px">
+    <table id="m-table" style="border-collapse:separate;border-spacing:0;white-space:nowrap;font-size:11px">
       <tbody id="m-tbody"></tbody>
     </table>
   </div>
@@ -1117,7 +1133,7 @@ function renderMatrix() {
     // Section separator
     rows.push('<tr style="background:#f1f5f9;color:#0f172a;font-size:11px;font-weight:700">'
       + '<td class="sticky-col-1 sticky-hdr" style="padding:6px 10px;text-align:center;border:1px solid #cbd5e1;font-size:14px">' + meta.idx + '</td>'
-      + '<td colspan="4" class="sticky-col-2 sticky-hdr" style="padding:6px 10px;border:1px solid #cbd5e1;border-right:2px solid #cbd5e1 !important;letter-spacing:.3px">'
+      + '<td colspan="4" class="sticky-col-2 sticky-hdr" style="padding:6px 10px;border:1px solid #cbd5e1;border-right:3px solid #64748b !important;letter-spacing:.3px">'
       + meta.code + '  ' + meta.label + '</td>'
       + '<td colspan="' + (TC - 5) + '" style="background:#f1f5f9;border:1px solid #cbd5e1"></td></tr>');
 
