@@ -275,68 +275,27 @@
 <div id="view-matrix" class="view hidden p-4">
 
   <!-- Filter bar -->
-  <div class="bg-white border border-slate-200 rounded-xl p-3 mb-3 shadow-sm">
-    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-      <input id="f-search" type="text" placeholder="Search…" oninput="renderMatrix()"
-        style="border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;font-size:12px;outline:none;grid-column:span 2"
-        class="col-span-2">
-      <select id="f-station" onchange="renderMatrix()" class="filter-sel">
-        <option value="">All Stations</option>
-      </select>
-      <select id="f-pic"    onchange="renderMatrix()" class="filter-sel">
-        <option value="">All PICs</option>
-      </select>
-      <select id="f-doc"    onchange="renderMatrix()" class="filter-sel">
-        <option value="">All Doc Types</option>
-      </select>
-      <select id="f-status" onchange="renderMatrix()" class="filter-sel">
-        <option value="">All Status</option>
-        <option>Not Started</option><option>In Progress</option>
-        <option>Completed</option><option>Delay</option>
-      </select>
-      <select id="f-po"     onchange="renderMatrix()" class="filter-sel">
-        <option value="">PO Timing</option>
-        <option value="before">Before PO</option>
-        <option value="after">After PO</option>
-      </select>
-      <select id="f-nm"     onchange="renderMatrix()" class="filter-sel">
-        <option value="">New / Mod</option>
-        <option value="New">New</option><option value="Mod">Mod</option>
-      </select>
-    </div>
-    <div class="flex items-center justify-between mt-2">
-      <span class="text-xs text-slate-400"><span id="m-count">0</span> tasks</span>
-      <button onclick="clearFilters()" class="text-xs text-emerald-600 hover:text-emerald-700 font-semibold">Clear all</button>
-    </div>
+  <div class="bg-white border border-slate-200 rounded-xl p-3 mb-3 shadow-sm flex items-center gap-2 flex-wrap">
+    <input id="f-search" type="text" placeholder="Search jig / doc…" oninput="renderMatrix()"
+      style="border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;font-size:12px;outline:none;width:180px">
+    <select id="f-station" onchange="renderMatrix()" class="filter-sel" style="width:160px">
+      <option value="">All Stations</option>
+    </select>
+    <select id="f-nm" onchange="renderMatrix()" class="filter-sel" style="width:110px">
+      <option value="">New / Mod</option>
+      <option value="New">New</option>
+      <option value="Mod">Mod</option>
+    </select>
+    <div class="flex-1"></div>
+    <span class="text-xs text-slate-400"><span id="m-count">0</span> jigs</span>
+    <button onclick="clearFilters()" class="text-xs text-emerald-600 hover:text-emerald-700 font-semibold">Clear</button>
   </div>
 
-  <!-- Table -->
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="w-full" style="font-size:12px">
-        <thead>
-          <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
-            <th class="th">Station</th>
-            <th class="th">Jig No</th>
-            <th class="th">Jig Name</th>
-            <th class="th">N/M</th>
-            <th class="th">Order</th>
-            <th class="th">PIC</th>
-            <th class="th">Document Type</th>
-            <th class="th">PO</th>
-            <th class="th">Order</th>
-            <th class="th">Creation</th>
-            <th class="th">Send MMTh</th>
-            <th class="th">Check MMTh</th>
-            <th class="th">Progress</th>
-            <th class="th">Status</th>
-            <th class="th">Step</th>
-            <th class="th">Action</th>
-          </tr>
-        </thead>
-        <tbody id="m-tbody"></tbody>
-      </table>
-    </div>
+  <!-- Master Tracking Table -->
+  <div style="overflow-x:auto;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+    <table id="m-table" style="border-collapse:collapse;white-space:nowrap;font-size:11px">
+      <tbody id="m-tbody"></tbody>
+    </table>
   </div>
 
 </div><!-- /matrix -->
@@ -611,12 +570,14 @@ async function linkFile(createNew) {
     if (createNew) {
       handle = await window.showSaveFilePicker({
         suggestedName: 'project-monitor-data.json',
+        startIn: 'downloads',
         types: [{ description: 'JSON File', accept: { 'application/json': ['.json'] } }],
       });
       fileHandle = handle;
       await writeToFile();
     } else {
       var picks = await window.showOpenFilePicker({
+        startIn: 'downloads',
         types: [{ description: 'JSON File', accept: { 'application/json': ['.json'] } }],
       });
       handle = picks[0];
@@ -952,15 +913,87 @@ function alertRowHtml(t, color) {
     + '</div>' + statusBadge(t.status) + '</div>';
 }
 
-// ─── MATRIX ───────────────────────────────────────────────────
+// ─── MATRIX (Master Tracking Sheet) ─────────────────────────
+
+var STATION_META = {
+  'Front Floor':   { idx:'①', code:'50A11', label:'FRONT FLOOR RNE/RVE/GCE' },
+  'Rear Floor':    { idx:'②', code:'50A12', label:'REAR FLOOR GCE' },
+  'Dash Panel':    { idx:'③', code:'50A13', label:'DASH PANEL RVE/GCE' },
+  'Fender Shield': { idx:'④', code:'50A14', label:'FENDER SHIELD GCE' },
+  'Main Body':     { idx:'⑤', code:'50A00', label:'MAIN BODY ASSY GCE' },
+  'Side Body':     { idx:'⑥', code:'50A16', label:'SIDE STRUCTURE GCE' },
+  'Roof':          { idx:'⑦', code:'50A20', label:'ROOF GCE' },
+  'Underbody':     { idx:'⑧', code:'50A00', label:'UNDER BODY GCE' },
+};
+
+var STATION_ORDER = ['Front Floor','Rear Floor','Dash Panel','Fender Shield','Main Body','Side Body','Roof','Underbody'];
+
+var BPD = [ // Before-PO documents — 5-stage lifecycle
+  { key:'Spot Layout',             lbl:'Spot Layout',    pic:['Kurihara',  '-',         '-','-','-'] },
+  { key:'Flowline Layout',         lbl:'Flowline Layout',pic:['Rangsimun', '-',         '-','-','-'] },
+  { key:'Flowchart',               lbl:'Flowchart',      pic:['Matsuo',    'Rangsimun', '-','-','-'] },
+  { key:'FMEA',                    lbl:'FMEA',           pic:['Matsuo',    'Rangsimun', '-','-','-'] },
+  { key:'GR Plan',                 lbl:'GR Plan',        pic:['Matsuo',    '-',         '-','-','-'] },
+  { key:'Process Plan',            lbl:'Process Plan',   pic:['Matsuo',    '-',         '-','-','-'] },
+  { key:'DHS',                     lbl:'DHS',            pic:['-',         'Kurihara',  '-','-','-'] },
+  { key:'Spot Information Sheet',  lbl:'Spot Info Sh.',  pic:['-',         'Kurihara',  '-','-','-'] },
+  { key:'Welding Condition Sheet', lbl:'Weld. Cond.',    pic:['Matsuo',    '-',         '-','-','-'] },
+  { key:'Jig Planning Sheet',      lbl:'Jig Planning',   pic:['Matsuo',    '-',         '-','-','-'] },
+  { key:'QC Control Sheet',        lbl:'QC Control',     pic:['-',         'Rangsimun', '-','-','-'] },
+];
+
+var APD = [ // After-PO documents — 4-stage lifecycle
+  { key:'Robot List / Gun List', lbl:'Robot/Gun List', pic:['-','Kurihara','-','-'] },
+  { key:'Safety Matrix',         lbl:'Safety Matrix',  pic:['-','Kurihara','-','-'] },
+];
+
+var S5 = ['Order','Creation','Send MMTh','Chk MMTh','Prog'];
+var S4 = ['Creation','Send MMTh','Chk MMTh','Prog'];
+
+var STEP_SEQ = ['Not Started','Order Done','Creating','Sent to MMTh','Under MMTh Check','Completed','Delay'];
+
+function sIdx(step) { var i = STEP_SEQ.indexOf(step); return i < 0 ? 0 : i; }
+
+function s5done(task, si) {
+  var s = sIdx(task.step);
+  if (si === 0) return s >= 1;                      // Order Done+
+  if (si === 1) return s >= 3;                      // Sent to MMTh+ (creation complete)
+  if (si === 2) return s >= 4;                      // Under MMTh Check+ (sent)
+  if (si === 3) return task.status === 'Completed';
+  return false;
+}
+
+function s4done(task, si) {
+  var s = sIdx(task.step);
+  if (si === 0) return s >= 3;                      // Sent to MMTh+
+  if (si === 1) return s >= 4;                      // Under MMTh Check+
+  if (si === 2) return task.status === 'Completed';
+  return false;
+}
+
+function msCell(task, field, done, isProg) {
+  if (isProg) {
+    var pct = task.progress || 0;
+    var clr = task.status === 'Completed' ? '#10b981' : task.status === 'Delay' ? '#ef4444' : '#f59e0b';
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px">'
+      + '<span style="font-size:11px;font-weight:700;color:#334155">' + pct + '%</span>'
+      + '<div style="width:36px;height:4px;background:#e2e8f0;border-radius:2px">'
+      + '<div style="width:' + pct + '%;height:4px;background:' + clr + ';border-radius:2px"></div>'
+      + '</div></div>';
+  }
+  var d = task[field];
+  if (!d) return '<span style="color:#e2e8f0">—</span>';
+  var sym = done ? '●' : '〇', color = done ? '#059669' : '#64748b', fw = done ? '700' : '400';
+  return '<span style="color:' + color + ';font-weight:' + fw + ';white-space:nowrap">' + sym + fmtDate(d) + '</span>';
+}
+
 function fillFilterOpts() {
-  fillSel('f-station', uniq('station'),      'All Stations');
-  fillSel('f-pic',     uniq('pic'),          'All PICs');
-  fillSel('f-doc',     uniq('documentType'), 'All Doc Types');
+  fillSel('f-station', uniq('station'), 'All Stations');
 }
 
 function fillSel(id, vals, placeholder) {
   var el  = document.getElementById(id);
+  if (!el) return;
   var cur = el.value;
   el.innerHTML = '<option value="">' + placeholder + '</option>';
   vals.forEach(function(v) {
@@ -971,73 +1004,168 @@ function fillSel(id, vals, placeholder) {
   });
 }
 
-function getFiltered() {
-  var s  = (document.getElementById('f-search')?.value  || '').toLowerCase();
-  var st = document.getElementById('f-station')?.value || '';
-  var pi = document.getElementById('f-pic')?.value     || '';
-  var dc = document.getElementById('f-doc')?.value     || '';
-  var sx = document.getElementById('f-status')?.value  || '';
-  var po = document.getElementById('f-po')?.value      || '';
-  var nm = document.getElementById('f-nm')?.value      || '';
-
-  return db.tasks.filter(function(t) {
-    if (s  && !(t.station + ' ' + t.jigNo + ' ' + t.jigName + ' ' + t.pic + ' ' + t.documentType + ' ' + (t.comment||'')).toLowerCase().includes(s)) return false;
-    if (st && t.station      !== st) return false;
-    if (pi && t.pic          !== pi) return false;
-    if (dc && t.documentType !== dc) return false;
-    if (sx && t.status       !== sx) return false;
-    if (po && t.poTiming     !== po) return false;
-    if (nm && t.newMod       !== nm) return false;
-    return true;
-  });
-}
-
 function renderMatrix() {
-  var tasks = getFiltered();
-  document.getElementById('m-count').textContent = tasks.length;
-  var tbody = document.getElementById('m-tbody');
+  var s   = (document.getElementById('f-search')?.value || '').toLowerCase();
+  var fst = document.getElementById('f-station')?.value || '';
+  var fnm = document.getElementById('f-nm')?.value      || '';
 
-  if (!tasks.length) {
-    tbody.innerHTML = '<tr><td colspan="16" style="text-align:center;padding:40px;font-size:13px;color:#cbd5e1">No tasks match the current filters.</td></tr>';
-    return;
+  // Build jig map: jigNo → { meta + tasks: { docType: task } }
+  var jigMap = {};
+  db.tasks.forEach(function(t) {
+    if (s   && !(t.station + ' ' + t.jigNo + ' ' + t.jigName + ' ' + t.pic + ' ' + t.documentType + ' ' + (t.comment||'')).toLowerCase().includes(s)) return;
+    if (fst && t.station !== fst) return;
+    if (fnm && t.newMod  !== fnm) return;
+    if (!jigMap[t.jigNo]) jigMap[t.jigNo] = { jigNo:t.jigNo, jigName:t.jigName, station:t.station, newMod:t.newMod, order:t.order, tasks:{} };
+    jigMap[t.jigNo].tasks[t.documentType] = t;
+  });
+
+  // Group jigs by station
+  var grouped = {};
+  STATION_ORDER.forEach(function(st) { grouped[st] = []; });
+  Object.values(jigMap).forEach(function(j) {
+    if (!grouped[j.station]) grouped[j.station] = [];
+    grouped[j.station].push(j);
+  });
+
+  var BC = BPD.length * 5, AC = APD.length * 4, FC = 5, TC = FC + BC + AC;
+  var rows = [];
+
+  // ── Title row
+  rows.push('<tr style="background:#0f172a">'
+    + '<td colspan="' + TC + '" style="padding:10px 16px;text-align:center;color:white;font-weight:700;font-size:13px;letter-spacing:.8px">'
+    + 'MMTh GCE — Document Progress Status</td></tr>');
+
+  // ── Phase colour bands
+  rows.push('<tr style="font-size:11px;font-weight:700">'
+    + '<td colspan="' + FC + '" style="border:1px solid #e2e8f0;background:#f8fafc"></td>'
+    + '<td colspan="' + BC + '" style="background:#d1fae5;color:#065f46;text-align:center;padding:5px 8px;border:1px solid #6ee7b7">● Green cells — documents before PO issue</td>'
+    + '<td colspan="' + AC + '" style="background:#dbeafe;color:#1e40af;text-align:center;padding:5px 8px;border:1px solid #93c5fd">● Blue cells — documents after PO issue</td>'
+    + '</tr>');
+
+  // ── Document type header row
+  var r3 = '<tr style="background:#f1f5f9;font-size:11px;font-weight:700;color:#475569">'
+    + '<td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">No.</td>'
+    + '<td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">Station</td>'
+    + '<td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center;min-width:200px">Jig No. / Name</td>'
+    + '<td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">N/M</td>'
+    + '<td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">Order</td>';
+  BPD.forEach(function(d) {
+    r3 += '<td colspan="5" style="padding:5px 6px;border:1px solid #6ee7b7;text-align:center;background:#ecfdf5;color:#065f46">' + d.lbl + '</td>';
+  });
+  APD.forEach(function(d) {
+    r3 += '<td colspan="4" style="padding:5px 6px;border:1px solid #93c5fd;text-align:center;background:#eff6ff;color:#1e40af">' + d.lbl + '</td>';
+  });
+  r3 += '</tr>';
+  rows.push(r3);
+
+  // ── Stage sub-header row
+  var r4 = '<tr style="background:#f8fafc;font-size:10px;font-weight:600;color:#64748b">'
+    + '<td colspan="' + FC + '" style="border:1px solid #e2e8f0"></td>';
+  BPD.forEach(function() {
+    S5.forEach(function(lbl, si) {
+      r4 += '<td style="padding:3px 5px;border:1px solid #d1fae5;text-align:center;' + (si===4?'background:#f0fdf4;':'') + '">' + lbl + '</td>';
+    });
+  });
+  APD.forEach(function() {
+    S4.forEach(function(lbl, si) {
+      r4 += '<td style="padding:3px 5px;border:1px solid #bfdbfe;text-align:center;' + (si===3?'background:#f0f8ff;':'') + '">' + lbl + '</td>';
+    });
+  });
+  r4 += '</tr>';
+  rows.push(r4);
+
+  // ── PIC row
+  var r5 = '<tr style="background:#fafafa;font-size:10px;color:#94a3b8">'
+    + '<td colspan="' + FC + '" style="padding:3px 8px;border:1px solid #e2e8f0;text-align:center;font-weight:600;color:#64748b">PIC</td>';
+  BPD.forEach(function(d) {
+    d.pic.forEach(function(p) {
+      r5 += '<td style="padding:2px 4px;border:1px solid #d1fae5;text-align:center">' + p + '</td>';
+    });
+  });
+  APD.forEach(function(d) {
+    d.pic.forEach(function(p) {
+      r5 += '<td style="padding:2px 4px;border:1px solid #bfdbfe;text-align:center">' + p + '</td>';
+    });
+  });
+  r5 += '</tr>';
+  rows.push(r5);
+
+  // ── Data rows
+  var n = 0;
+  STATION_ORDER.forEach(function(station) {
+    var jigs = grouped[station];
+    if (!jigs || !jigs.length) return;
+    var meta = STATION_META[station] || { idx:'—', code:'', label:station };
+
+    // Section separator
+    rows.push('<tr style="background:#f1f5f9;color:#0f172a;font-size:11px;font-weight:700">'
+      + '<td style="padding:6px 10px;text-align:center;border:1px solid #cbd5e1;font-size:14px">' + meta.idx + '</td>'
+      + '<td colspan="' + (TC-1) + '" style="padding:6px 10px;border:1px solid #cbd5e1;letter-spacing:.3px">'
+      + meta.code + '  ' + meta.label + '</td></tr>');
+
+    jigs.forEach(function(jig, ji) {
+      n++;
+      var bg = ji % 2 === 0 ? 'white' : '#f8fafc';
+      var row = '<tr style="background:' + bg + '">'
+        + '<td style="padding:6px 8px;border:1px solid #f1f5f9;text-align:center;color:#94a3b8">' + n + '</td>'
+        + '<td style="padding:6px 8px;border:1px solid #f1f5f9;color:#64748b">' + escHtml(jig.station) + '</td>'
+        + '<td style="padding:6px 10px;border:1px solid #f1f5f9">'
+        +   '<span style="font-weight:700;color:#059669;cursor:pointer" onclick="openDetail(\'' + escHtml(jig.jigNo) + '\')">' + escHtml(jig.jigNo) + '</span>'
+        +   '<span style="color:#64748b;margin-left:8px;font-size:11px">' + escHtml(jig.jigName) + '</span>'
+        + '</td>'
+        + '<td style="padding:6px 8px;border:1px solid #f1f5f9;text-align:center">'
+        + (jig.newMod === 'New'
+            ? '<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#f5f3ff;color:#5b21b6">New</span>'
+            : '<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fff7ed;color:#c2410c">Mod</span>')
+        + '</td>'
+        + '<td style="padding:6px 8px;border:1px solid #f1f5f9;text-align:center;color:#64748b">' + escHtml(jig.order || '') + '</td>';
+
+      BPD.forEach(function(doc) {
+        var t = jig.tasks[doc.key];
+        var bdr = '1px solid #ecfdf5';
+        if (!t) {
+          for (var si = 0; si < 5; si++) {
+            row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center;' + (si===4?'background:#f7fef7;':'') + '"><span style="color:#e2e8f0">—</span></td>';
+          }
+        } else {
+          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planOrder',   s5done(t,0),false) + '</td>';
+          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCreation',s5done(t,1),false) + '</td>';
+          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planSend',    s5done(t,2),false) + '</td>';
+          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCheck',   s5done(t,3),false) + '</td>';
+          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center;background:#f0fdf4">' + msCell(t,null,false,true) + '</td>';
+        }
+      });
+
+      APD.forEach(function(doc) {
+        var t = jig.tasks[doc.key];
+        var bdr = '1px solid #dbeafe';
+        if (!t) {
+          for (var si = 0; si < 4; si++) {
+            row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center;' + (si===3?'background:#f0f8ff;':'') + '"><span style="color:#e2e8f0">—</span></td>';
+          }
+        } else {
+          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCreation',s4done(t,0),false) + '</td>';
+          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planSend',    s4done(t,1),false) + '</td>';
+          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCheck',   s4done(t,2),false) + '</td>';
+          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center;background:#eff6ff">' + msCell(t,null,false,true) + '</td>';
+        }
+      });
+
+      row += '</tr>';
+      rows.push(row);
+    });
+  });
+
+  if (!n) {
+    rows.push('<tr><td colspan="' + TC + '" style="text-align:center;padding:40px;font-size:13px;color:#cbd5e1">No jigs match the current filters.</td></tr>');
   }
 
-  tbody.innerHTML = tasks.map(function(t, i) {
-    var odd        = i % 2 === 1 ? 'background:#f8fafc' : '';
-    var overBorder = isOverdue(t) ? 'border-left:3px solid #ef4444' : '';
-    var nmCls      = t.newMod === 'New'
-      ? 'background:#f5f3ff;color:#5b21b6;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600'
-      : 'background:#fff7ed;color:#c2410c;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600';
-
-    return '<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer;' + odd + overBorder + '" ondblclick="openEditModal(\'' + t.id + '\')">'
-      + '<td style="padding:8px 12px;white-space:nowrap;color:#475569">' + escHtml(t.station) + '</td>'
-      + '<td style="padding:8px 12px;white-space:nowrap;font-weight:600;color:#059669;cursor:pointer" onclick="openDetail(\'' + escHtml(t.jigNo) + '\')">' + escHtml(t.jigNo) + '</td>'
-      + '<td style="padding:8px 12px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#475569" title="' + escHtml(t.jigName) + '">' + escHtml(t.jigName) + '</td>'
-      + '<td style="padding:8px 12px;white-space:nowrap"><span style="' + nmCls + '">' + escHtml(t.newMod) + '</span></td>'
-      + '<td style="padding:8px 12px;white-space:nowrap;color:#64748b">' + escHtml(t.order) + '</td>'
-      + '<td style="padding:8px 12px;white-space:nowrap;font-weight:500;color:#1e293b">' + escHtml(t.pic) + '</td>'
-      + '<td style="padding:8px 12px;white-space:nowrap;color:#475569">' + escHtml(t.documentType) + '</td>'
-      + '<td style="padding:8px 12px;white-space:nowrap">' + poBadge(t.poTiming) + '</td>'
-      + '<td style="padding:8px 12px;white-space:nowrap;color:#94a3b8">' + fmtDate(t.planOrder) + '</td>'
-      + '<td style="padding:8px 12px;white-space:nowrap;color:#94a3b8">' + fmtDate(t.planCreation) + '</td>'
-      + '<td style="padding:8px 12px;white-space:nowrap;' + (isOverdue(t)?'color:#ef4444;font-weight:700':'color:#94a3b8') + '">' + fmtDate(t.planSend) + '</td>'
-      + '<td style="padding:8px 12px;white-space:nowrap;' + (isOverdue(t)?'color:#ef4444;font-weight:700':'color:#94a3b8') + '">' + fmtDate(t.planCheck) + '</td>'
-      + '<td style="padding:8px 12px;white-space:nowrap;min-width:100px">'
-      +   '<div style="display:flex;align-items:center;gap:6px">'
-      +     '<div style="flex:1">' + barHtml(t.progress, barColor(t)) + '</div>'
-      +     '<span style="font-size:11px;color:#64748b;width:30px;text-align:right">' + t.progress + '%</span>'
-      +   '</div></td>'
-      + '<td style="padding:8px 12px;white-space:nowrap">' + statusBadge(t.status) + '</td>'
-      + '<td style="padding:8px 12px;white-space:nowrap;color:#94a3b8">' + escHtml(t.step) + '</td>'
-      + '<td style="padding:8px 12px;white-space:nowrap">'
-      +   '<button onclick="openEditModal(\'' + t.id + '\')" style="font-size:11px;color:#94a3b8;padding:3px 8px;border-radius:6px;border:none;background:none;cursor:pointer" onmouseover="this.style.color=\'#059669\'" onmouseout="this.style.color=\'#94a3b8\'">Edit</button>'
-      + '</td>'
-      + '</tr>';
-  }).join('');
+  document.getElementById('m-count').textContent = n;
+  document.getElementById('m-tbody').innerHTML = rows.join('');
 }
 
 function clearFilters() {
-  ['f-search','f-station','f-pic','f-doc','f-status','f-po','f-nm'].forEach(function(id) {
+  ['f-search','f-station','f-nm'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.value = '';
   });
