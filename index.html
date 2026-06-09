@@ -61,6 +61,41 @@
       border-radius: 8px; color: #94a3b8; transition: background .15s, color .15s;
     }
     .modal-close-btn:hover { background: #f1f5f9; color: #475569; }
+
+    /* ---- Sticky columns for Matrix view ---- */
+    .sticky-col-1 {
+      position: sticky; left: 0px; z-index: 10;
+      width: 40px; min-width: 40px; max-width: 40px;
+      background-color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .sticky-col-2 {
+      position: sticky; left: 40px; z-index: 10;
+      width: 100px; min-width: 100px; max-width: 100px;
+      background-color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .sticky-col-3 {
+      position: sticky; left: 140px; z-index: 10;
+      width: 240px; min-width: 240px; max-width: 240px;
+      background-color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .sticky-col-4 {
+      position: sticky; left: 380px; z-index: 10;
+      width: 50px; min-width: 50px; max-width: 50px;
+      background-color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .sticky-col-5 {
+      position: sticky; left: 430px; z-index: 10;
+      width: 60px; min-width: 60px; max-width: 60px;
+      background-color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      border-right: 2px solid #cbd5e1 !important;
+    }
+    .sticky-col-span5 {
+      position: sticky; left: 0px; z-index: 11;
+      background-color: inherit; border-right: 2px solid #cbd5e1 !important;
+    }
+    .sticky-hdr {
+      z-index: 15 !important;
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen antialiased">
@@ -1023,23 +1058,24 @@ function renderMatrix() {
 
   // ── Title row
   rows.push('<tr style="background:#0f172a">'
-    + '<td colspan="' + TC + '" style="padding:10px 16px;text-align:center;color:white;font-weight:700;font-size:13px;letter-spacing:.8px">'
-    + 'MMTh GCE — Document Progress Status</td></tr>');
+    + '<td colspan="5" class="sticky-col-span5 sticky-hdr" style="padding:10px 16px;text-align:left;color:white;font-weight:700;font-size:13px;letter-spacing:.8px">'
+    + 'MMTh GCE — Document Progress Status</td>'
+    + '<td colspan="' + (TC - 5) + '" style="background:#0f172a"></td></tr>');
 
   // ── Phase colour bands
   rows.push('<tr style="font-size:11px;font-weight:700">'
-    + '<td colspan="' + FC + '" style="border:1px solid #e2e8f0;background:#f8fafc"></td>'
+    + '<td colspan="' + FC + '" class="sticky-col-span5 sticky-hdr" style="border:1px solid #e2e8f0;background:#f8fafc"></td>'
     + '<td colspan="' + BC + '" style="background:#d1fae5;color:#065f46;text-align:center;padding:5px 8px;border:1px solid #6ee7b7">● Green cells — documents before PO issue</td>'
     + '<td colspan="' + AC + '" style="background:#dbeafe;color:#1e40af;text-align:center;padding:5px 8px;border:1px solid #93c5fd">● Blue cells — documents after PO issue</td>'
     + '</tr>');
 
   // ── Document type header row
   var r3 = '<tr style="background:#f1f5f9;font-size:11px;font-weight:700;color:#475569">'
-    + '<td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">No.</td>'
-    + '<td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">Station</td>'
-    + '<td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center;min-width:200px">Jig No. / Name</td>'
-    + '<td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">N/M</td>'
-    + '<td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">Order</td>';
+    + '<td class="sticky-col-1 sticky-hdr" style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">No.</td>'
+    + '<td class="sticky-col-2 sticky-hdr" style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">Station</td>'
+    + '<td class="sticky-col-3 sticky-hdr" style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center;min-width:200px">Jig No. / Name</td>'
+    + '<td class="sticky-col-4 sticky-hdr" style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">N/M</td>'
+    + '<td class="sticky-col-5 sticky-hdr" style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">Order</td>';
   BPD.forEach(function(d) {
     r3 += '<td colspan="' + S5.length + '" style="padding:5px 6px;border:1px solid #6ee7b7;text-align:center;background:#ecfdf5;color:#065f46">' + d.lbl + '</td>';
   });
@@ -1051,7 +1087,7 @@ function renderMatrix() {
 
   // ── Stage sub-header row
   var r4 = '<tr style="background:#f8fafc;font-size:10px;font-weight:600;color:#64748b">'
-    + '<td colspan="' + FC + '" style="border:1px solid #e2e8f0"></td>';
+    + '<td colspan="' + FC + '" class="sticky-col-span5 sticky-hdr" style="border:1px solid #e2e8f0;background:#f8fafc"></td>';
   BPD.forEach(function() {
     S5.forEach(function(lbl) {
       r4 += '<td style="padding:3px 5px;border:1px solid #d1fae5;text-align:center">' + lbl + '</td>';
@@ -1067,7 +1103,7 @@ function renderMatrix() {
 
   // ── PIC row
   var r5 = '<tr style="background:#fafafa;font-size:10px;color:#94a3b8">'
-    + '<td colspan="' + FC + '" style="padding:3px 8px;border:1px solid #e2e8f0;text-align:center;font-weight:600;color:#64748b">PIC</td>';
+    + '<td colspan="' + FC + '" class="sticky-col-span5 sticky-hdr" style="padding:3px 8px;border:1px solid #e2e8f0;text-align:center;font-weight:600;color:#64748b">PIC</td>';
   BPD.forEach(function(d) {
     d.pic.forEach(function(p) {
       r5 += '<td style="padding:2px 4px;border:1px solid #d1fae5;text-align:center">' + p + '</td>';
@@ -1090,26 +1126,27 @@ function renderMatrix() {
 
     // Section separator
     rows.push('<tr style="background:#f1f5f9;color:#0f172a;font-size:11px;font-weight:700">'
-      + '<td style="padding:6px 10px;text-align:center;border:1px solid #cbd5e1;font-size:14px">' + meta.idx + '</td>'
-      + '<td colspan="' + (TC-1) + '" style="padding:6px 10px;border:1px solid #cbd5e1;letter-spacing:.3px">'
-      + meta.code + '  ' + meta.label + '</td></tr>');
+      + '<td class="sticky-col-1 sticky-hdr" style="padding:6px 10px;text-align:center;border:1px solid #cbd5e1;font-size:14px">' + meta.idx + '</td>'
+      + '<td colspan="4" class="sticky-col-2 sticky-hdr" style="padding:6px 10px;border:1px solid #cbd5e1;border-right:2px solid #cbd5e1 !important;letter-spacing:.3px">'
+      + meta.code + '  ' + meta.label + '</td>'
+      + '<td colspan="' + (TC - 5) + '" style="background:#f1f5f9;border:1px solid #cbd5e1"></td></tr>');
 
     jigs.forEach(function(jig, ji) {
       n++;
       var bg = ji % 2 === 0 ? 'white' : '#f8fafc';
       var row = '<tr style="background:' + bg + '">'
-        + '<td style="padding:6px 8px;border:1px solid #f1f5f9;text-align:center;color:#94a3b8">' + n + '</td>'
-        + '<td style="padding:6px 8px;border:1px solid #f1f5f9;color:#64748b">' + escHtml(jig.station) + '</td>'
-        + '<td style="padding:6px 10px;border:1px solid #f1f5f9">'
+        + '<td class="sticky-col-1" style="padding:6px 8px;border:1px solid #f1f5f9;text-align:center;color:#94a3b8">' + n + '</td>'
+        + '<td class="sticky-col-2" style="padding:6px 8px;border:1px solid #f1f5f9;color:#64748b">' + escHtml(jig.station) + '</td>'
+        + '<td class="sticky-col-3" style="padding:6px 10px;border:1px solid #f1f5f9">'
         +   '<span style="font-weight:700;color:#059669;cursor:pointer" onclick="openDetail(\'' + escHtml(jig.jigNo) + '\')">' + escHtml(jig.jigNo) + '</span>'
         +   '<span style="color:#64748b;margin-left:8px;font-size:11px">' + escHtml(jig.jigName) + '</span>'
         + '</td>'
-        + '<td style="padding:6px 8px;border:1px solid #f1f5f9;text-align:center">'
+        + '<td class="sticky-col-4" style="padding:6px 8px;border:1px solid #f1f5f9;text-align:center">'
         + (jig.newMod === 'New'
             ? '<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#f5f3ff;color:#5b21b6">New</span>'
             : '<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fff7ed;color:#c2410c">Mod</span>')
         + '</td>'
-        + '<td style="padding:6px 8px;border:1px solid #f1f5f9;text-align:center;color:#64748b">' + escHtml(jig.order || '') + '</td>';
+        + '<td class="sticky-col-5" style="padding:6px 8px;border:1px solid #f1f5f9;text-align:center;color:#64748b">' + escHtml(jig.order || '') + '</td>';
 
       BPD.forEach(function(doc) {
         var t = jig.tasks[doc.key];
