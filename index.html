@@ -1131,44 +1131,46 @@ function renderMatrix() {
       var bg = ji % 2 === 0 ? 'white' : '#f8fafc';
       var row = '<tr style="background:' + bg + '">'
         + '<td class="sticky-col-1" style="padding:6px 8px;border:1px solid #f1f5f9;text-align:center;color:#94a3b8">' + n + '</td>'
-        + '<td class="sticky-col-2" style="padding:6px 8px;border:1px solid #f1f5f9;color:#64748b">' + escHtml(jig.station) + '</td>'
+        + '<td class="sticky-col-2" data-jig-no="' + escHtml(jig.jigNo) + '" data-field="station" style="padding:6px 8px;border:1px solid #f1f5f9;color:#64748b;cursor:pointer" title="Click to edit station">' + escHtml(jig.station) + '</td>'
         + '<td class="sticky-col-3" style="padding:6px 10px;border:1px solid #f1f5f9">'
-        +   '<span style="font-weight:700;color:#059669;cursor:pointer" onclick="openDetail(\'' + escHtml(jig.jigNo) + '\')">' + escHtml(jig.jigNo) + '</span>'
-        +   '<span style="color:#64748b;margin-left:8px;font-size:11px">' + escHtml(jig.jigName) + '</span>'
+        +   '<span data-jig-no="' + escHtml(jig.jigNo) + '" data-field="jigNo" style="font-weight:700;color:#059669;cursor:pointer" ondblclick="openDetail(\'' + escHtml(jig.jigNo) + '\')" title="Click to edit jig number, Double-click to view details">' + escHtml(jig.jigNo) + '</span>'
+        +   '<span data-jig-no="' + escHtml(jig.jigNo) + '" data-field="jigName" style="color:#64748b;margin-left:8px;font-size:11px;cursor:pointer" title="Click to edit jig name">' + escHtml(jig.jigName) + '</span>'
         + '</td>'
-        + '<td class="sticky-col-4" style="padding:6px 8px;border:1px solid #f1f5f9;text-align:center">'
+        + '<td class="sticky-col-4" data-jig-no="' + escHtml(jig.jigNo) + '" data-field="newMod" style="padding:6px 8px;border:1px solid #f1f5f9;text-align:center;cursor:pointer" title="Click to edit New/Mod">'
         + (jig.newMod === 'New'
             ? '<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#f5f3ff;color:#5b21b6">New</span>'
             : '<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fff7ed;color:#c2410c">Mod</span>')
         + '</td>'
-        + '<td class="sticky-col-5" style="padding:6px 8px;border:1px solid #f1f5f9;text-align:center;color:#64748b">' + escHtml(jig.order || '') + '</td>';
+        + '<td class="sticky-col-5" data-jig-no="' + escHtml(jig.jigNo) + '" data-field="order" style="padding:6px 8px;border:1px solid #f1f5f9;text-align:center;color:#64748b;cursor:pointer" title="Click to edit order">' + escHtml(jig.order || '') + '</td>';
 
       BPD.forEach(function(doc) {
         var t = jig.tasks[doc.key];
         var bdr = '1px solid #ecfdf5';
+        var fields = ['planOrder', 'planCreation', 'planSend', 'planCheck'];
         if (!t) {
           for (var si = 0; si < S5.length; si++) {
-            row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center"><span style="color:#e2e8f0">—</span></td>';
+            row += '<td data-jig-no="' + escHtml(jig.jigNo) + '" data-doc-type="' + escHtml(doc.key) + '" data-field="' + fields[si] + '" style="padding:5px 6px;border:' + bdr + ';text-align:center;cursor:pointer" title="Click to add task date"><span style="color:#e2e8f0">—</span></td>';
           }
         } else {
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planOrder',   s5done(t,0)) + '</td>';
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCreation',s5done(t,1)) + '</td>';
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planSend',    s5done(t,2)) + '</td>';
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCheck',   s5done(t,3)) + '</td>';
+          row += '<td data-task-id="' + t.id + '" data-field="planOrder" style="padding:5px 6px;border:' + bdr + ';text-align:center;cursor:pointer" title="Click to edit date">' + msCell(t,'planOrder',   s5done(t,0)) + '</td>';
+          row += '<td data-task-id="' + t.id + '" data-field="planCreation" style="padding:5px 6px;border:' + bdr + ';text-align:center;cursor:pointer" title="Click to edit date">' + msCell(t,'planCreation',s5done(t,1)) + '</td>';
+          row += '<td data-task-id="' + t.id + '" data-field="planSend" style="padding:5px 6px;border:' + bdr + ';text-align:center;cursor:pointer" title="Click to edit date">' + msCell(t,'planSend',    s5done(t,2)) + '</td>';
+          row += '<td data-task-id="' + t.id + '" data-field="planCheck" style="padding:5px 6px;border:' + bdr + ';text-align:center;cursor:pointer" title="Click to edit date">' + msCell(t,'planCheck',   s5done(t,3)) + '</td>';
         }
       });
 
       APD.forEach(function(doc) {
         var t = jig.tasks[doc.key];
         var bdr = '1px solid #dbeafe';
+        var fields = ['planCreation', 'planSend', 'planCheck'];
         if (!t) {
           for (var si = 0; si < S4.length; si++) {
-            row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center"><span style="color:#e2e8f0">—</span></td>';
+            row += '<td data-jig-no="' + escHtml(jig.jigNo) + '" data-doc-type="' + escHtml(doc.key) + '" data-field="' + fields[si] + '" style="padding:5px 6px;border:' + bdr + ';text-align:center;cursor:pointer" title="Click to add task date"><span style="color:#e2e8f0">—</span></td>';
           }
         } else {
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCreation',s4done(t,0)) + '</td>';
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planSend',    s4done(t,1)) + '</td>';
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCheck',   s4done(t,2)) + '</td>';
+          row += '<td data-task-id="' + t.id + '" data-field="planCreation" style="padding:5px 6px;border:' + bdr + ';text-align:center;cursor:pointer" title="Click to edit date">' + msCell(t,'planCreation',s4done(t,0)) + '</td>';
+          row += '<td data-task-id="' + t.id + '" data-field="planSend" style="padding:5px 6px;border:' + bdr + ';text-align:center;cursor:pointer" title="Click to edit date">' + msCell(t,'planSend',    s4done(t,1)) + '</td>';
+          row += '<td data-task-id="' + t.id + '" data-field="planCheck" style="padding:5px 6px;border:' + bdr + ';text-align:center;cursor:pointer" title="Click to edit date">' + msCell(t,'planCheck',   s4done(t,2)) + '</td>';
         }
       });
 
@@ -1479,6 +1481,199 @@ function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') { closeModal('taskModal'); closeModal('detailModal'); }
+});
+
+// ─── Inline editing in Matrix View ────────────────────────────
+function startInlineEdit(el) {
+  var taskId = el.getAttribute('data-task-id');
+  var jigNo = el.getAttribute('data-jig-no');
+  var field = el.getAttribute('data-field');
+  var curVal = "";
+
+  if (taskId) {
+    var task = db.tasks.find(function(t) { return t.id === taskId; });
+    if (task) curVal = task[field] || "";
+  } else if (jigNo) {
+    if (field === 'station' || field === 'jigNo' || field === 'jigName' || field === 'newMod' || field === 'order') {
+      var tasks = db.tasks.filter(function(t) { return t.jigNo === jigNo; });
+      if (tasks.length > 0) curVal = tasks[0][field] || "";
+    }
+  }
+
+  var isDate = field && field.startsWith('plan');
+  var input = document.createElement('input');
+  input.type = isDate ? 'date' : 'text';
+  input.value = curVal;
+  
+  // Style input to fit inside table cells perfectly
+  input.style.width = '100%';
+  input.style.fontSize = '11px';
+  input.style.padding = '2px 4px';
+  input.style.border = '1px solid #10b981';
+  input.style.borderRadius = '4px';
+  input.style.outline = 'none';
+  input.style.boxSizing = 'border-box';
+  input.style.height = '24px';
+  input.style.color = '#1e293b';
+  input.style.backgroundColor = '#ffffff';
+
+  el.innerHTML = '';
+  el.appendChild(input);
+  input.focus();
+  if (input.type === 'text') {
+    input.select();
+  }
+
+  var blurred = false;
+  function finishEdit() {
+    if (blurred) return;
+    blurred = true;
+    saveInlineEdit(el, input.value);
+  }
+
+  input.addEventListener('keydown', function(evt) {
+    if (evt.key === 'Enter') {
+      evt.preventDefault();
+      finishEdit();
+    } else if (evt.key === 'Escape') {
+      evt.preventDefault();
+      blurred = true;
+      renderMatrix();
+    }
+  });
+
+  input.addEventListener('blur', finishEdit);
+}
+
+function saveInlineEdit(el, newVal) {
+  var taskId = el.getAttribute('data-task-id');
+  var jigNo = el.getAttribute('data-jig-no');
+  var field = el.getAttribute('data-field');
+  var docType = el.getAttribute('data-doc-type');
+
+  newVal = (newVal || '').trim();
+
+  // 1. Jig metadata properties
+  if (jigNo && (field === 'station' || field === 'jigNo' || field === 'jigName' || field === 'newMod' || field === 'order')) {
+    if (!newVal) {
+      toast('Value cannot be empty', 'error');
+      renderMatrix();
+      return;
+    }
+    
+    // Normalize newMod
+    if (field === 'newMod') {
+      newVal = newVal.toLowerCase().startsWith('m') ? 'Mod' : 'New';
+    }
+
+    // Check duplicate Jig No
+    if (field === 'jigNo' && newVal !== jigNo) {
+      var exists = db.tasks.some(function(t) { return t.jigNo === newVal; });
+      if (exists) {
+        toast('Jig No already exists', 'error');
+        renderMatrix();
+        return;
+      }
+    }
+
+    db.tasks.forEach(function(t) {
+      if (t.jigNo === jigNo) {
+        t[field] = newVal;
+        t.lastUpdated = iso();
+      }
+    });
+    
+    saveDB();
+    toast('Jig details updated');
+    refreshView();
+    updateNavStats();
+    return;
+  }
+
+  // 2. Existing task date fields
+  if (taskId) {
+    var task = db.tasks.find(function(t) { return t.id === taskId; });
+    if (task) {
+      if (newVal && isNaN(Date.parse(newVal))) {
+        toast('Invalid date format', 'error');
+        renderMatrix();
+        return;
+      }
+      task[field] = newVal;
+      task.lastUpdated = iso();
+      saveDB();
+      toast('Date updated');
+      refreshView();
+      updateNavStats();
+    }
+    return;
+  }
+
+  // 3. New task date cell (creating new task)
+  if (jigNo && docType && field) {
+    if (!newVal) {
+      renderMatrix();
+      return;
+    }
+    
+    if (isNaN(Date.parse(newVal))) {
+      toast('Invalid date format', 'error');
+      renderMatrix();
+      return;
+    }
+
+    var other = db.tasks.find(function(t) { return t.jigNo === jigNo; });
+    if (!other) {
+      toast('Jig metadata not found', 'error');
+      renderMatrix();
+      return;
+    }
+
+    var isBefore = APD.every(function(d) { return d.key !== docType; });
+    var docMeta = (isBefore ? BPD : APD).find(function(d) { return d.key === docType; });
+    var pic = "-";
+    if (docMeta && docMeta.pic) {
+      pic = docMeta.pic.find(function(p) { return p !== "-"; }) || "-";
+    }
+
+    var newTask = {
+      id: genId(),
+      station: other.station,
+      jigNo: other.jigNo,
+      jigName: other.jigName,
+      newMod: other.newMod,
+      order: other.order,
+      pic: pic,
+      documentType: docType,
+      poTiming: isBefore ? 'before' : 'after',
+      planOrder: field === 'planOrder' ? newVal : "",
+      planCreation: field === 'planCreation' ? newVal : "",
+      planSend: field === 'planSend' ? newVal : "",
+      planCheck: field === 'planCheck' ? newVal : "",
+      progress: 0,
+      status: 'Not Started',
+      step: 'Not Started',
+      comment: "",
+      lastUpdated: iso()
+    };
+
+    db.tasks.push(newTask);
+    saveDB();
+    toast('Task created for ' + docType);
+    refreshView();
+    updateNavStats();
+    return;
+  }
+
+  renderMatrix();
+}
+
+// Add the table listener
+document.addEventListener('click', function(e) {
+  var el = e.target.closest('#m-table [data-field]');
+  if (!el) return;
+  if (el.querySelector('input')) return;
+  startInlineEdit(el);
 });
 
 // ─── DOM shorthand ────────────────────────────────────────────
