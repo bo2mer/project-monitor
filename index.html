@@ -963,40 +963,16 @@ var STATION_META = {
 
 var STATION_ORDER = ['Front Floor','Rear Floor','Dash Panel','Fender Shield','Main Body','Side Body','Roof','Underbody'];
 
-var BPD = [ // Before-PO documents — 4-stage lifecycle
-  { key:'Spot Layout',             lbl:'Spot Layout',    pic:['Kurihara',  '-',         '-','-'] },
-  { key:'Flowline Layout',         lbl:'Flowline Layout',pic:['Rangsimun', '-',         '-','-'] },
-  { key:'Flowchart',               lbl:'Flowchart',      pic:['Matsuo',    'Rangsimun', '-','-'] },
-  { key:'FMEA',                    lbl:'FMEA',           pic:['Matsuo',    'Rangsimun', '-','-'] },
-  { key:'GR Plan',                 lbl:'GR Plan',        pic:['Matsuo',    '-',         '-','-'] },
-  { key:'Process Plan',            lbl:'Process Plan',   pic:['Matsuo',    '-',         '-','-'] },
-  { key:'DHS',                     lbl:'DHS',            pic:['-',         'Kurihara',  '-','-'] },
-  { key:'Spot Information Sheet',  lbl:'Spot Info Sh.',  pic:['-',         'Kurihara',  '-','-'] },
-  { key:'Welding Condition Sheet', lbl:'Weld. Cond.',    pic:['Matsuo',    '-',         '-','-'] },
-  { key:'Jig Planning Sheet',      lbl:'Jig Planning',   pic:['Matsuo',    '-',         '-','-'] },
-  { key:'QC Control Sheet',        lbl:'QC Control',     pic:['-',         'Rangsimun', '-','-'] },
-];
-
 var APD = [ // After-PO documents — 3-stage lifecycle
   { key:'Robot List / Gun List', lbl:'Robot/Gun List', pic:['-','Kurihara','-'] },
   { key:'Safety Matrix',         lbl:'Safety Matrix',  pic:['-','Kurihara','-'] },
 ];
 
-var S5 = ['Order','Creation','Send MMTh','Chk MMTh'];
 var S4 = ['Creation','Send MMTh','Chk MMTh'];
 
 var STEP_SEQ = ['Not Started','Order Done','Creating','Sent to MMTh','Under MMTh Check','Completed','Delay'];
 
 function sIdx(step) { var i = STEP_SEQ.indexOf(step); return i < 0 ? 0 : i; }
-
-function s5done(task, si) {
-  var s = sIdx(task.step);
-  if (si === 0) return s >= 1;                      // Order Done+
-  if (si === 1) return s >= 3;                      // Sent to MMTh+ (creation complete)
-  if (si === 2) return s >= 4;                      // Under MMTh Check+ (sent)
-  if (si === 3) return task.status === 'Completed';
-  return false;
-}
 
 function s4done(task, si) {
   var s = sIdx(task.step);
@@ -1053,7 +1029,7 @@ function renderMatrix() {
     grouped[j.station].push(j);
   });
 
-  var BC = BPD.length * S5.length, AC = APD.length * S4.length, FC = 5, TC = FC + BC + AC;
+  var AC = APD.length * S4.length, FC = 5, TC = FC + AC;
   var rows = [];
 
   // ── Title row
@@ -1062,13 +1038,6 @@ function renderMatrix() {
     + 'MMTh GCE — Document Progress Status</td>'
     + '<td colspan="' + (TC - 5) + '" style="background:#0f172a"></td></tr>');
 
-  // ── Phase colour bands
-  rows.push('<tr style="font-size:11px;font-weight:700">'
-    + '<td colspan="' + FC + '" class="sticky-col-span5 sticky-hdr" style="border:1px solid #e2e8f0;background:#f8fafc"></td>'
-    + '<td colspan="' + BC + '" style="background:#d1fae5;color:#065f46;text-align:center;padding:5px 8px;border:1px solid #6ee7b7">● Green cells — documents before PO issue</td>'
-    + '<td colspan="' + AC + '" style="background:#dbeafe;color:#1e40af;text-align:center;padding:5px 8px;border:1px solid #93c5fd">● Blue cells — documents after PO issue</td>'
-    + '</tr>');
-
   // ── Document type header row
   var r3 = '<tr style="background:#f1f5f9;font-size:11px;font-weight:700;color:#475569">'
     + '<td class="sticky-col-1 sticky-hdr" style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">No.</td>'
@@ -1076,9 +1045,6 @@ function renderMatrix() {
     + '<td class="sticky-col-3 sticky-hdr" style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center;min-width:200px">Jig No. / Name</td>'
     + '<td class="sticky-col-4 sticky-hdr" style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">N/M</td>'
     + '<td class="sticky-col-5 sticky-hdr" style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">Order</td>';
-  BPD.forEach(function(d) {
-    r3 += '<td colspan="' + S5.length + '" style="padding:5px 6px;border:1px solid #6ee7b7;text-align:center;background:#ecfdf5;color:#065f46">' + d.lbl + '</td>';
-  });
   APD.forEach(function(d) {
     r3 += '<td colspan="' + S4.length + '" style="padding:5px 6px;border:1px solid #93c5fd;text-align:center;background:#eff6ff;color:#1e40af">' + d.lbl + '</td>';
   });
@@ -1088,11 +1054,6 @@ function renderMatrix() {
   // ── Stage sub-header row
   var r4 = '<tr style="background:#f8fafc;font-size:10px;font-weight:600;color:#64748b">'
     + '<td colspan="' + FC + '" class="sticky-col-span5 sticky-hdr" style="border:1px solid #e2e8f0;background:#f8fafc"></td>';
-  BPD.forEach(function() {
-    S5.forEach(function(lbl) {
-      r4 += '<td style="padding:3px 5px;border:1px solid #d1fae5;text-align:center">' + lbl + '</td>';
-    });
-  });
   APD.forEach(function() {
     S4.forEach(function(lbl) {
       r4 += '<td style="padding:3px 5px;border:1px solid #bfdbfe;text-align:center">' + lbl + '</td>';
@@ -1104,11 +1065,6 @@ function renderMatrix() {
   // ── PIC row
   var r5 = '<tr style="background:#fafafa;font-size:10px;color:#94a3b8">'
     + '<td colspan="' + FC + '" class="sticky-col-span5 sticky-hdr" style="padding:3px 8px;border:1px solid #e2e8f0;text-align:center;font-weight:600;color:#64748b">PIC</td>';
-  BPD.forEach(function(d) {
-    d.pic.forEach(function(p) {
-      r5 += '<td style="padding:2px 4px;border:1px solid #d1fae5;text-align:center">' + p + '</td>';
-    });
-  });
   APD.forEach(function(d) {
     d.pic.forEach(function(p) {
       r5 += '<td style="padding:2px 4px;border:1px solid #bfdbfe;text-align:center">' + p + '</td>';
@@ -1147,21 +1103,6 @@ function renderMatrix() {
             : '<span style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:#fff7ed;color:#c2410c">Mod</span>')
         + '</td>'
         + '<td class="sticky-col-5" style="padding:6px 8px;border:1px solid #f1f5f9;text-align:center;color:#64748b">' + escHtml(jig.order || '') + '</td>';
-
-      BPD.forEach(function(doc) {
-        var t = jig.tasks[doc.key];
-        var bdr = '1px solid #ecfdf5';
-        if (!t) {
-          for (var si = 0; si < S5.length; si++) {
-            row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center"><span style="color:#e2e8f0">—</span></td>';
-          }
-        } else {
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planOrder',   s5done(t,0)) + '</td>';
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCreation',s5done(t,1)) + '</td>';
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planSend',    s5done(t,2)) + '</td>';
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCheck',   s5done(t,3)) + '</td>';
-        }
-      });
 
       APD.forEach(function(doc) {
         var t = jig.tasks[doc.key];
