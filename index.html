@@ -103,6 +103,18 @@
     <span>Delay <span id="navDelay" class="text-red-400 font-bold">0</span></span>
   </div>
 
+  <!-- File status chip -->
+  <span id="file-status" title="Link a local JSON file to sync data to disk"
+    class="hidden lg:block text-xs px-2 py-1 rounded-md truncate max-w-[160px]"
+    style="color:#94a3b8">No file linked</span>
+  <button onclick="linkFile(false)" title="Link local JSON file"
+    class="flex items-center gap-1 bg-emerald-800 hover:bg-emerald-700 text-emerald-300 hover:text-white text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors">
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+    </svg>
+    <span class="hidden sm:inline">Link File</span>
+  </button>
+
   <!-- Action buttons -->
   <button onclick="openAddModal()"
     class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
@@ -131,6 +143,18 @@
 </nav>
 
 <main class="pt-12 min-h-screen">
+
+<!-- ═══════════════════════════════════════════════════════════
+     FILE-LINK BANNER (hidden when a file is linked)
+═══════════════════════════════════════════════════════════ -->
+<div id="no-file-banner" class="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center gap-3 flex-wrap" style="display:none">
+  <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:#f59e0b">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+  </svg>
+  <span class="text-xs text-amber-700 flex-1">Data is stored in your <strong>browser only</strong>. Link a local JSON file to keep data on your drive and survive browser clears.</span>
+  <button onclick="linkFile(true)"  class="text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg transition-colors flex-shrink-0">Create new file</button>
+  <button onclick="linkFile(false)" class="text-xs font-semibold bg-white hover:bg-amber-100 text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg transition-colors flex-shrink-0">Open existing file</button>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════════
      VIEW 1 — DASHBOARD
@@ -529,17 +553,113 @@ const KANBAN_COLS = [
   'Sent to MMTh','Under MMTh Check','Completed','Delay'
 ];
 
+// ─── File System Access API state ────────────────────────────
+let fileHandle = null;
+
+// IndexedDB helpers — used to persist the file handle across sessions
+function openIDB() {
+  return new Promise(function(resolve, reject) {
+    var req = indexedDB.open('pm_fsh_v1', 1);
+    req.onupgradeneeded = function(e) { e.target.result.createObjectStore('handles'); };
+    req.onsuccess = function(e) { resolve(e.target.result); };
+    req.onerror   = function()  { reject(); };
+  });
+}
+async function idbPut(val) {
+  var idb = await openIDB();
+  return new Promise(function(resolve) {
+    var tx = idb.transaction('handles', 'readwrite');
+    tx.objectStore('handles').put(val, 'main');
+    tx.oncomplete = resolve;
+  });
+}
+async function idbGet() {
+  var idb = await openIDB();
+  return new Promise(function(resolve) {
+    var tx  = idb.transaction('handles', 'readonly');
+    var req = tx.objectStore('handles').get('main');
+    req.onsuccess = function(e) { resolve(e.target.result || null); };
+    req.onerror   = function()  { resolve(null); };
+  });
+}
+
+// Write db to the linked file
+async function writeToFile() {
+  if (!fileHandle) return;
+  try {
+    var writable = await fileHandle.createWritable();
+    await writable.write(JSON.stringify(db, null, 2));
+    await writable.close();
+  } catch(e) {
+    toast('Auto-save failed: ' + e.message, 'error');
+  }
+}
+
+// Let the user pick or create a JSON file and link it
+async function linkFile(createNew) {
+  if (!('showOpenFilePicker' in window)) {
+    toast('File System Access API not supported. Use Chrome or Edge.', 'error');
+    return;
+  }
+  try {
+    var handle;
+    if (createNew) {
+      handle = await window.showSaveFilePicker({
+        suggestedName: 'project-monitor-data.json',
+        types: [{ description: 'JSON File', accept: { 'application/json': ['.json'] } }],
+      });
+      fileHandle = handle;
+      await writeToFile();
+    } else {
+      var picks = await window.showOpenFilePicker({
+        types: [{ description: 'JSON File', accept: { 'application/json': ['.json'] } }],
+      });
+      handle = picks[0];
+      var file   = await handle.getFile();
+      var text   = await file.text();
+      try {
+        var parsed = JSON.parse(text);
+        if (!Array.isArray(parsed.tasks)) throw new Error('bad');
+        if (db.tasks.length && !confirm('Replace current ' + db.tasks.length + ' tasks with ' + parsed.tasks.length + ' tasks from the selected file?')) return;
+        db = parsed;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+      } catch(_) { toast('Selected file is not a valid project-monitor JSON', 'error'); return; }
+      fileHandle = handle;
+    }
+    await idbPut(fileHandle);
+    updateFileUI();
+    refreshView();
+    updateNavStats();
+    toast('Linked to ' + fileHandle.name);
+  } catch(e) {
+    if (e.name !== 'AbortError') toast('Could not link file', 'error');
+  }
+}
+
+function updateFileUI() {
+  var status = document.getElementById('file-status');
+  var banner = document.getElementById('no-file-banner');
+  if (fileHandle) {
+    if (status) { status.textContent = fileHandle.name; status.style.color = '#34d399'; }
+    if (banner)  banner.style.display = 'none';
+  } else {
+    if (status) { status.textContent = 'No file linked'; status.style.color = '#94a3b8'; }
+    if (banner)  banner.style.display = '';
+  }
+}
+
 // ─── Database helpers ─────────────────────────────────────────
 function loadDB() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    var raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   } catch(_) {}
   return { tasks: sampleTasks() };
 }
 
 function saveDB() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); // fast cache for next page load
+  if (fileHandle) writeToFile();                          // sync to linked file
 }
 
 let db = loadDB();
@@ -1139,7 +1259,30 @@ function escHtml(s) {
 }
 
 // ─── Init ─────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', function() { showView('dashboard'); });
+document.addEventListener('DOMContentLoaded', async function() {
+  // Try to restore the previously linked file handle from IndexedDB
+  var handle = await idbGet();
+  if (handle) {
+    try {
+      var perm = await handle.queryPermission({ mode: 'readwrite' });
+      if (perm === 'prompt') perm = await handle.requestPermission({ mode: 'readwrite' });
+      if (perm === 'granted') {
+        fileHandle = handle;
+        var file   = await handle.getFile();
+        var text   = await file.text();
+        var parsed = JSON.parse(text);
+        if (Array.isArray(parsed.tasks)) {
+          db = parsed;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+        }
+      }
+    } catch(_) {
+      fileHandle = null; // file was moved/deleted — fall back gracefully
+    }
+  }
+  updateFileUI();
+  showView('dashboard');
+});
 </script>
 
 </body>
