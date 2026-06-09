@@ -64,33 +64,28 @@
 
     /* ---- Sticky columns for Matrix view ---- */
     .sticky-col-1 {
-      position: sticky; left: 0px; z-index: 10;
-      width: 40px; min-width: 40px; max-width: 40px;
+      position: sticky; z-index: 10;
       background-color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .sticky-col-2 {
-      position: sticky; left: 40px; z-index: 10;
-      width: 100px; min-width: 100px; max-width: 100px;
+      position: sticky; z-index: 10;
       background-color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .sticky-col-3 {
-      position: sticky; left: 140px; z-index: 10;
-      width: 240px; min-width: 240px; max-width: 240px;
+      position: sticky; z-index: 10;
       background-color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .sticky-col-4 {
-      position: sticky; left: 380px; z-index: 10;
-      width: 50px; min-width: 50px; max-width: 50px;
+      position: sticky; z-index: 10;
       background-color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .sticky-col-5 {
-      position: sticky; left: 430px; z-index: 10;
-      width: 60px; min-width: 60px; max-width: 60px;
+      position: sticky; z-index: 10;
       background-color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       border-right: 2px solid #cbd5e1 !important;
     }
     .sticky-col-span5 {
-      position: sticky; left: 0px; z-index: 11;
+      position: sticky; z-index: 11;
       background-color: inherit; border-right: 2px solid #cbd5e1 !important;
     }
     .sticky-hdr {
@@ -1185,6 +1180,76 @@ function renderMatrix() {
 
   document.getElementById('m-count').textContent = n;
   document.getElementById('m-tbody').innerHTML = rows.join('');
+  adjustStickyColumns();
+}
+
+function adjustStickyColumns() {
+  var table = document.getElementById('m-table');
+  if (!table) return;
+
+  var colClasses = ['.sticky-col-1', '.sticky-col-2', '.sticky-col-3', '.sticky-col-4', '.sticky-col-5'];
+  var widths = [0, 0, 0, 0, 0];
+
+  // 1. Temporarily clear styling to let columns auto-fit their content naturally
+  for (var i = 0; i < 5; i++) {
+    var cells = table.querySelectorAll(colClasses[i]);
+    cells.forEach(function(cell) {
+      cell.style.position = 'static';
+      cell.style.left = '';
+      cell.style.width = '';
+      cell.style.minWidth = '';
+      cell.style.maxWidth = '';
+    });
+  }
+
+  // 2. Measure the actual natural auto-fit widths of each column
+  for (var i = 0; i < 5; i++) {
+    var cells = table.querySelectorAll(colClasses[i]);
+    var maxW = 0;
+    cells.forEach(function(cell) {
+      var w = cell.getBoundingClientRect().width;
+      if (w > maxW) maxW = w;
+    });
+    // Add 1px padding for clean sub-pixel layout alignment
+    widths[i] = Math.ceil(maxW) + 1;
+  }
+
+  // 3. Apply the sticky positions and fixed widths
+  var leftOffset = 0;
+  for (var i = 0; i < 5; i++) {
+    var cells = table.querySelectorAll(colClasses[i]);
+    var w = widths[i];
+    cells.forEach(function(cell) {
+      cell.style.position = 'sticky';
+      cell.style.left = leftOffset + 'px';
+      cell.style.width = w + 'px';
+      cell.style.minWidth = w + 'px';
+      cell.style.maxWidth = w + 'px';
+    });
+    leftOffset += w;
+  }
+
+  // 4. Adjust the colspanned table header cells
+  var span5Cells = table.querySelectorAll('.sticky-col-span5');
+  span5Cells.forEach(function(cell) {
+    cell.style.position = 'sticky';
+    cell.style.left = '0px';
+  });
+
+  // 5. Adjust the colspan="4" cells in section headers (column 2 to 5)
+  var sectHdrs = table.querySelectorAll('.sticky-col-2[colspan="4"]');
+  sectHdrs.forEach(function(cell) {
+    cell.style.position = 'sticky';
+    cell.style.left = widths[0] + 'px';
+  });
+
+  // Register resize handler once
+  if (!window._stickyResizeRegistered) {
+    window._stickyResizeRegistered = true;
+    window.addEventListener('resize', function() {
+      adjustStickyColumns();
+    });
+  }
 }
 
 function clearFilters() {
