@@ -554,7 +554,8 @@ const KANBAN_COLS = [
 ];
 
 // ─── File System Access API state ────────────────────────────
-let fileHandle = null;
+let fileHandle    = null; // currently connected handle (readwrite granted)
+let pendingHandle = null; // handle restored from IDB but waiting for user gesture
 
 // IndexedDB helpers — used to persist the file handle across sessions
 function openIDB() {
@@ -639,12 +640,65 @@ async function linkFile(createNew) {
 function updateFileUI() {
   var status = document.getElementById('file-status');
   var banner = document.getElementById('no-file-banner');
+
   if (fileHandle) {
+    // Connected — green name, banner hidden
     if (status) { status.textContent = fileHandle.name; status.style.color = '#34d399'; }
     if (banner)  banner.style.display = 'none';
+
+  } else if (pendingHandle) {
+    // Handle exists but browser needs a click to re-grant permission
+    if (status) { status.textContent = pendingHandle.name; status.style.color = '#f59e0b'; }
+    if (banner) {
+      banner.style.display = '';
+      banner.innerHTML =
+        '<svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:#f59e0b">'
+        + '<path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>'
+        + '</svg>'
+        + '<span class="text-xs text-amber-700 flex-1">Previously linked to <strong>' + escHtml(pendingHandle.name) + '</strong>. Click to reconnect.</span>'
+        + '<button onclick="reconnectFile()" class="text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg transition-colors flex-shrink-0">'
+        + 'Reconnect to ' + escHtml(pendingHandle.name) + '</button>'
+        + '<button onclick="linkFile(false)" class="text-xs text-amber-600 hover:underline flex-shrink-0">Use a different file</button>';
+    }
+
   } else {
+    // No file ever linked
     if (status) { status.textContent = 'No file linked'; status.style.color = '#94a3b8'; }
-    if (banner)  banner.style.display = '';
+    if (banner) {
+      banner.style.display = '';
+      banner.innerHTML =
+        '<svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:#f59e0b">'
+        + '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>'
+        + '</svg>'
+        + '<span class="text-xs text-amber-700 flex-1">Data is stored in your <strong>browser only</strong>. Link a local JSON file to keep data on your drive and survive browser clears.</span>'
+        + '<button onclick="linkFile(true)"  class="text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg transition-colors flex-shrink-0">Create new file</button>'
+        + '<button onclick="linkFile(false)" class="text-xs font-semibold bg-white hover:bg-amber-100 text-amber-700 border border-amber-300 px-3 py-1.5 rounded-lg transition-colors flex-shrink-0">Open existing file</button>';
+    }
+  }
+}
+
+// Re-grant permission to the previously linked file (requires a user gesture)
+async function reconnectFile() {
+  if (!pendingHandle) return;
+  try {
+    var perm = await pendingHandle.requestPermission({ mode: 'readwrite' });
+    if (perm === 'granted') {
+      fileHandle    = pendingHandle;
+      pendingHandle = null;
+      var file   = await fileHandle.getFile();
+      var text   = await file.text();
+      var parsed = JSON.parse(text);
+      if (Array.isArray(parsed.tasks)) {
+        db = parsed;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+      }
+      updateFileUI();
+      refreshView();
+      updateNavStats();
+      toast('Reconnected to ' + fileHandle.name);
+    }
+  } catch(e) {
+    if (e.name !== 'AbortError') toast('Could not reconnect', 'error');
   }
 }
 
@@ -1260,13 +1314,12 @@ function escHtml(s) {
 
 // ─── Init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async function() {
-  // Try to restore the previously linked file handle from IndexedDB
   var handle = await idbGet();
   if (handle) {
     try {
       var perm = await handle.queryPermission({ mode: 'readwrite' });
-      if (perm === 'prompt') perm = await handle.requestPermission({ mode: 'readwrite' });
       if (perm === 'granted') {
+        // Permission already active (same browser session) — read file silently
         fileHandle = handle;
         var file   = await handle.getFile();
         var text   = await file.text();
@@ -1275,9 +1328,13 @@ document.addEventListener('DOMContentLoaded', async function() {
           db = parsed;
           localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
         }
+      } else {
+        // Permission needs a user gesture — surface a one-click Reconnect button
+        pendingHandle = handle;
       }
     } catch(_) {
-      fileHandle = null; // file was moved/deleted — fall back gracefully
+      // File was deleted or moved — clear the stale handle
+      await idbPut(null);
     }
   }
   updateFileUI();
