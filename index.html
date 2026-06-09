@@ -1,1 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project Monitor — Production Engineering</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* ---- Scrollbar ---- */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    /* ---- Kanban horizontal scroll ---- */
+    .kanban-board { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 16px; align-items: flex-start; }
+    .kanban-col   { min-width: 215px; max-width: 215px; }
+
+    /* ---- Card hover lift ---- */
+    .task-card { transition: transform .12s, box-shadow .12s; cursor: pointer; }
+    .task-card:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,.09); }
+
+    /* ---- Progress bar fill animation ---- */
+    .bar-fill { transition: width .5s ease; }
+
+    /* ---- Active nav tab ---- */
+    .nav-active { background: rgba(16,185,129,.18) !important; color: #10b981 !important; }
+
+    /* ---- Table row hover ---- */
+    tbody tr:hover { background: rgba(16,185,129,.04); }
+
+    /* ---- Fade-in toast ---- */
+    @keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    .toast-show { animation: fadeInUp .2s ease forwards; }
+
+    /* ---- filter-sel shared style ---- */
+    .filter-sel {
+      border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 10px;
+      font-size: 12px; outline: none; background: white; width: 100%;
+    }
+    .filter-sel:focus { ring: 2px; border-color: #34d399; }
+
+    /* ---- form helpers ---- */
+    .form-label { display: block; font-size: 11px; font-weight: 500; color: #64748b; margin-bottom: 4px; }
+    .form-input {
+      width: 100%; border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 8px 12px; font-size: 14px; outline: none;
+    }
+    .form-input:focus { border-color: #34d399; box-shadow: 0 0 0 2px rgba(52,211,153,.2); }
+
+    /* ---- table header ---- */
+    .th { text-align: left; padding: 10px 12px; white-space: nowrap; font-size: 11px; }
+
+    /* ---- modal close btn ---- */
+    .modal-close-btn {
+      width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+      border-radius: 8px; color: #94a3b8; transition: background .15s, color .15s;
+    }
+    .modal-close-btn:hover { background: #f1f5f9; color: #475569; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen antialiased">
+
+<!-- ═══════════════════════════════════════════════════════════
+     TOP NAVIGATION BAR
+═══════════════════════════════════════════════════════════ -->
+<nav class="fixed top-0 inset-x-0 z-50 bg-slate-900 border-b border-slate-700/60 flex items-center px-4 gap-3 h-12">
+
+  <!-- Logo -->
+  <div class="flex items-center gap-2 mr-3 select-none">
+    <div class="w-6 h-6 bg-emerald-500 rounded-md flex items-center justify-center flex-shrink-0">
+      <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+      </svg>
+    </div>
+    <span class="text-white font-semibold text-sm tracking-tight hidden sm:block">Project Monitor</span>
+  </div>
+
+  <!-- View tabs -->
+  <div class="flex items-center gap-0.5 bg-slate-800 rounded-lg p-1">
+    <button onclick="showView('dashboard')" id="nav-dashboard"
+      class="nav-btn px-3 py-1 text-xs font-medium text-slate-400 rounded-md transition-colors hover:text-white hover:bg-slate-700">
+      Dashboard
+    </button>
+    <button onclick="showView('matrix')" id="nav-matrix"
+      class="nav-btn px-3 py-1 text-xs font-medium text-slate-400 rounded-md transition-colors hover:text-white hover:bg-slate-700">
+      Matrix
+    </button>
+    <button onclick="showView('kanban')" id="nav-kanban"
+      class="nav-btn px-3 py-1 text-xs font-medium text-slate-400 rounded-md transition-colors hover:text-white hover:bg-slate-700">
+      Kanban
+    </button>
+  </div>
+
+  <div class="flex-1"></div>
+
+  <!-- Quick stats (desktop only) -->
+  <div id="navStats" class="hidden md:flex items-center gap-3 text-xs text-slate-400 mr-2">
+    <span>Total <span id="navTotal"  class="text-white font-bold">0</span></span>
+    <span class="text-slate-700">|</span>
+    <span>Done <span id="navDone"   class="text-emerald-400 font-bold">0</span></span>
+    <span class="text-slate-700">|</span>
+    <span>Delay <span id="navDelay" class="text-red-400 font-bold">0</span></span>
+  </div>
+
+  <!-- Action buttons -->
+  <button onclick="openAddModal()"
+    class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+    </svg>
+    <span class="hidden sm:inline">Add Task</span>
+  </button>
+  <button onclick="exportJSON()"
+    title="Export JSON"
+    class="flex items-center gap-1 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors">
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+    </svg>
+    <span class="hidden sm:inline">Export</span>
+  </button>
+  <button onclick="document.getElementById('importFile').click()"
+    title="Import JSON"
+    class="flex items-center gap-1 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors">
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+    </svg>
+    <span class="hidden sm:inline">Import</span>
+  </button>
+  <input id="importFile" type="file" accept=".json" class="hidden" onchange="importJSON(event)">
+</nav>
+
+<main class="pt-12 min-h-screen">
+
+<!-- ═══════════════════════════════════════════════════════════
+     VIEW 1 — DASHBOARD
+═══════════════════════════════════════════════════════════ -->
+<div id="view-dashboard" class="view p-5">
+
+  <!-- Row 1: summary cards -->
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+
+    <!-- Overall progress (spans 2 cols) -->
+    <div class="col-span-2 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <div class="flex items-end justify-between mb-2">
+        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Overall Progress</span>
+        <span id="d-pct" class="text-3xl font-bold text-slate-800 leading-none">0%</span>
+      </div>
+      <div class="w-full bg-slate-100 rounded-full h-2 mb-2">
+        <div id="d-pct-bar" class="bg-emerald-500 h-2 rounded-full bar-fill" style="width:0%"></div>
+      </div>
+      <div class="text-xs text-slate-400"><span id="d-cmp">0</span> of <span id="d-tot">0</span> tasks completed</div>
+    </div>
+
+    <!-- Status cards -->
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Completed</div>
+      <div id="d-s-cmp" class="text-2xl font-bold text-emerald-600 mb-0.5">0</div>
+      <div class="text-xs text-emerald-500">Done ✓</div>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">In Progress</div>
+      <div id="d-s-ip"  class="text-2xl font-bold text-amber-500 mb-0.5">0</div>
+      <div class="text-xs text-amber-400">Active</div>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Not Started</div>
+      <div id="d-s-ns"  class="text-2xl font-bold text-slate-400 mb-0.5">0</div>
+      <div class="text-xs text-slate-300">Pending</div>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Delay</div>
+      <div id="d-s-dl"  class="text-2xl font-bold text-red-500 mb-0.5">0</div>
+      <div class="text-xs text-red-400">Overdue !</div>
+    </div>
+  </div>
+
+  <!-- Row 2: PO timing · by PIC · by Station -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+
+    <!-- PO Timing -->
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">By PO Issue Timing</h3>
+      <div class="space-y-3">
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>Before PO Issue
+            </span>
+            <span id="d-before-pct" class="text-xs font-semibold text-slate-600">0%</span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-1.5">
+            <div id="d-before-bar" class="bg-emerald-500 h-1.5 rounded-full bar-fill" style="width:0%"></div>
+          </div>
+          <div class="text-xs text-slate-400 mt-0.5"><span id="d-before-n">0</span> tasks</div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
+              <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>After PO Issue
+            </span>
+            <span id="d-after-pct" class="text-xs font-semibold text-slate-600">0%</span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-1.5">
+            <div id="d-after-bar" class="bg-blue-500 h-1.5 rounded-full bar-fill" style="width:0%"></div>
+          </div>
+          <div class="text-xs text-slate-400 mt-0.5"><span id="d-after-n">0</span> tasks</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- By PIC -->
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Progress by PIC</h3>
+      <div id="d-by-pic" class="space-y-2"></div>
+    </div>
+
+    <!-- By Station -->
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Progress by Station</h3>
+      <div id="d-by-station" class="space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- Row 3: Due soon · Overdue -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+        <span class="w-2 h-2 bg-amber-400 rounded-full inline-block"></span>Due Soon (Next 7 Days)
+      </h3>
+      <div id="d-due-soon" class="space-y-1.5 max-h-52 overflow-y-auto pr-1"></div>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+        <span class="w-2 h-2 bg-red-500 rounded-full inline-block animate-pulse"></span>Overdue
+      </h3>
+      <div id="d-overdue" class="space-y-1.5 max-h-52 overflow-y-auto pr-1"></div>
+    </div>
+  </div>
+
+</div><!-- /dashboard -->
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     VIEW 2 — MATRIX
+═══════════════════════════════════════════════════════════ -->
+<div id="view-matrix" class="view hidden p-4">
+
+  <!-- Filter bar -->
+  <div class="bg-white border border-slate-200 rounded-xl p-3 mb-3 shadow-sm">
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+      <input id="f-search" type="text" placeholder="Search…" oninput="renderMatrix()"
+        style="border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;font-size:12px;outline:none;grid-column:span 2"
+        class="col-span-2">
+      <select id="f-station" onchange="renderMatrix()" class="filter-sel">
+        <option value="">All Stations</option>
+      </select>
+      <select id="f-pic"    onchange="renderMatrix()" class="filter-sel">
+        <option value="">All PICs</option>
+      </select>
+      <select id="f-doc"    onchange="renderMatrix()" class="filter-sel">
+        <option value="">All Doc Types</option>
+      </select>
+      <select id="f-status" onchange="renderMatrix()" class="filter-sel">
+        <option value="">All Status</option>
+        <option>Not Started</option><option>In Progress</option>
+        <option>Completed</option><option>Delay</option>
+      </select>
+      <select id="f-po"     onchange="renderMatrix()" class="filter-sel">
+        <option value="">PO Timing</option>
+        <option value="before">Before PO</option>
+        <option value="after">After PO</option>
+      </select>
+      <select id="f-nm"     onchange="renderMatrix()" class="filter-sel">
+        <option value="">New / Mod</option>
+        <option value="New">New</option><option value="Mod">Mod</option>
+      </select>
+    </div>
+    <div class="flex items-center justify-between mt-2">
+      <span class="text-xs text-slate-400"><span id="m-count">0</span> tasks</span>
+      <button onclick="clearFilters()" class="text-xs text-emerald-600 hover:text-emerald-700 font-semibold">Clear all</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full" style="font-size:12px">
+        <thead>
+          <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
+            <th class="th">Station</th>
+            <th class="th">Jig No</th>
+            <th class="th">Jig Name</th>
+            <th class="th">N/M</th>
+            <th class="th">Order</th>
+            <th class="th">PIC</th>
+            <th class="th">Document Type</th>
+            <th class="th">PO</th>
+            <th class="th">Order</th>
+            <th class="th">Creation</th>
+            <th class="th">Send MMTh</th>
+            <th class="th">Check MMTh</th>
+            <th class="th">Progress</th>
+            <th class="th">Status</th>
+            <th class="th">Step</th>
+            <th class="th">Action</th>
+          </tr>
+        </thead>
+        <tbody id="m-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /matrix -->
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     VIEW 3 — KANBAN
+═══════════════════════════════════════════════════════════ -->
+<div id="view-kanban" class="view hidden p-4">
+
+  <!-- Kanban filters -->
+  <div class="flex items-center gap-2 mb-4 flex-wrap">
+    <input id="k-search" type="text" placeholder="Search tasks…" oninput="renderKanban()"
+      style="border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;font-size:12px;outline:none;width:180px">
+    <select id="k-pic"     onchange="renderKanban()" class="filter-sel" style="width:130px">
+      <option value="">All PICs</option>
+    </select>
+    <select id="k-station" onchange="renderKanban()" class="filter-sel" style="width:150px">
+      <option value="">All Stations</option>
+    </select>
+    <div class="flex-1"></div>
+    <div class="flex items-center gap-3 text-xs text-slate-400">
+      <span class="flex items-center gap-1">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block"></span>Before PO
+      </span>
+      <span class="flex items-center gap-1">
+        <span class="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block"></span>After PO
+      </span>
+    </div>
+  </div>
+
+  <div class="kanban-board" id="kanban-board"></div>
+
+</div><!-- /kanban -->
+
+</main>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL — ADD / EDIT TASK
+═══════════════════════════════════════════════════════════ -->
+<div id="taskModal" class="fixed inset-0 z-50 hidden bg-black/50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-screen overflow-y-auto" style="max-height:92vh">
+
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
+      <h2 id="modal-title" class="text-sm font-semibold text-slate-800">Add New Task</h2>
+      <button onclick="closeModal('taskModal')" class="modal-close-btn">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="p-5 grid grid-cols-2 gap-3">
+      <input type="hidden" id="m-id">
+
+      <div>
+        <label class="form-label">Station *</label>
+        <select id="m-station" class="form-input">
+          <option>Front Floor</option><option>Rear Floor</option><option>Dash Panel</option>
+          <option>Fender Shield</option><option>Main Body</option><option>Side Body</option>
+          <option>Roof</option><option>Underbody</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Jig No *</label>
+        <input id="m-jigno" type="text" placeholder="e.g. FF351" class="form-input">
+      </div>
+      <div class="col-span-2">
+        <label class="form-label">Jig Name *</label>
+        <input id="m-jigname" type="text" placeholder="e.g. F/FLR NUMBERING JIG" class="form-input">
+      </div>
+      <div>
+        <label class="form-label">New / Mod</label>
+        <select id="m-newmod" class="form-input">
+          <option value="New">New</option><option value="Mod">Mod</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Order</label>
+        <select id="m-order" class="form-input">
+          <option>MMTh</option><option>MMC</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">PIC *</label>
+        <select id="m-pic" class="form-input">
+          <option>Rangsimun</option><option>Matsuo</option><option>Kurihara</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Document Type *</label>
+        <select id="m-doctype" class="form-input">
+          <option>Spot Layout</option><option>Flowline Layout</option><option>Flowchart</option>
+          <option>FMEA</option><option>GR Plan</option><option>Process Plan</option>
+          <option>DHS</option><option>Spot Information Sheet</option>
+          <option>Welding Condition Sheet</option><option>Jig Planning Sheet</option>
+          <option>QC Control Sheet</option><option>Robot List / Gun List</option>
+          <option>Safety Matrix</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">PO Issue Timing</label>
+        <select id="m-po" class="form-input">
+          <option value="before">Before PO Issue</option>
+          <option value="after">After PO Issue</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Current Step</label>
+        <select id="m-step" class="form-input">
+          <option>Not Started</option><option>Order Done</option><option>Creating</option>
+          <option>Sent to MMTh</option><option>Under MMTh Check</option>
+          <option>Completed</option><option>Delay</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Plan Order Date</label>
+        <input id="m-p-order"    type="date" class="form-input">
+      </div>
+      <div>
+        <label class="form-label">Plan Creation Date</label>
+        <input id="m-p-creation" type="date" class="form-input">
+      </div>
+      <div>
+        <label class="form-label">Plan Send MMTh</label>
+        <input id="m-p-send"     type="date" class="form-input">
+      </div>
+      <div>
+        <label class="form-label">Plan Check MMTh</label>
+        <input id="m-p-check"    type="date" class="form-input">
+      </div>
+      <div>
+        <label class="form-label">Progress (%)</label>
+        <input id="m-progress" type="number" min="0" max="100" value="0" class="form-input">
+      </div>
+      <div>
+        <label class="form-label">Status</label>
+        <select id="m-status" class="form-input">
+          <option>Not Started</option><option>In Progress</option>
+          <option>Completed</option><option>Delay</option>
+        </select>
+      </div>
+      <div class="col-span-2">
+        <label class="form-label">Comment / Note</label>
+        <textarea id="m-comment" rows="2" placeholder="Notes, issues…" class="form-input" style="resize:none"></textarea>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between px-5 pb-5 border-t border-slate-100 pt-4">
+      <button id="modal-del" onclick="deleteTask()"
+        class="hidden text-xs font-medium text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors">
+        Delete Task
+      </button>
+      <div class="flex gap-2 ml-auto">
+        <button onclick="closeModal('taskModal')"
+          class="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+          Cancel
+        </button>
+        <button onclick="saveTask()"
+          class="px-4 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors">
+          Save Task
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL — JIG DETAIL
+═══════════════════════════════════════════════════════════ -->
+<div id="detailModal" class="fixed inset-0 z-50 hidden bg-black/50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-y-auto" style="max-height:92vh">
+
+    <div class="flex items-start justify-between px-5 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
+      <div>
+        <h2 id="det-title"    class="text-sm font-semibold text-slate-800">Detail</h2>
+        <p  id="det-subtitle" class="text-xs text-slate-400 mt-0.5"></p>
+      </div>
+      <button onclick="closeModal('detailModal')" class="modal-close-btn" style="margin-top:2px">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div id="det-content" class="p-5 space-y-3"></div>
+
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     TOAST NOTIFICATION
+═══════════════════════════════════════════════════════════ -->
+<div id="toast" class="fixed bottom-5 right-5 z-[100] hidden">
+  <div id="toast-inner" class="bg-slate-800 text-white text-xs font-medium px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2 toast-show">
+    <svg id="toast-icon" class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+    </svg>
+    <span id="toast-msg">Done</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ─── Constants ────────────────────────────────────────────────
+const STORAGE_KEY = 'pm_v1';
+const KANBAN_COLS = [
+  'Not Started','Order Done','Creating',
+  'Sent to MMTh','Under MMTh Check','Completed','Delay'
+];
+
+// ─── Database helpers ─────────────────────────────────────────
+function loadDB() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(_) {}
+  return { tasks: sampleTasks() };
+}
+
+function saveDB() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+}
+
+let db = loadDB();
+
+// ─── Sample data ──────────────────────────────────────────────
+function sampleTasks() {
+  return [
+    { id:'T001', station:'Front Floor',   jigNo:'FF351', jigName:'F/FLR NUMBERING JIG',   newMod:'New', order:'MMTh', pic:'Kurihara',  documentType:'Spot Layout',            poTiming:'before', planOrder:'2026-05-20', planCreation:'2026-05-25', planSend:'2026-06-01', planCheck:'2026-06-08', progress:80,  status:'In Progress', step:'Under MMTh Check', comment:'',                          lastUpdated:iso() },
+    { id:'T002', station:'Front Floor',   jigNo:'FF351', jigName:'F/FLR NUMBERING JIG',   newMod:'New', order:'MMTh', pic:'Kurihara',  documentType:'FMEA',                   poTiming:'before', planOrder:'2026-05-20', planCreation:'2026-06-01', planSend:'2026-06-10', planCheck:'2026-06-15', progress:50,  status:'In Progress', step:'Creating',         comment:'Waiting for design freeze', lastUpdated:iso() },
+    { id:'T003', station:'Front Floor',   jigNo:'FF351', jigName:'F/FLR NUMBERING JIG',   newMod:'New', order:'MMTh', pic:'Rangsimun', documentType:'Process Plan',           poTiming:'before', planOrder:'2026-05-22', planCreation:'2026-06-03', planSend:'2026-06-12', planCheck:'2026-06-18', progress:0,   status:'Not Started', step:'Not Started',      comment:'',                          lastUpdated:iso() },
+    { id:'T004', station:'Front Floor',   jigNo:'FF352', jigName:'F/FLR ASSY JIG No.1',   newMod:'New', order:'MMTh', pic:'Rangsimun', documentType:'FMEA',                   poTiming:'before', planOrder:'2026-05-15', planCreation:'2026-05-28', planSend:'2026-06-05', planCheck:'2026-06-09', progress:60,  status:'In Progress', step:'Sent to MMTh',     comment:'',                          lastUpdated:iso() },
+    { id:'T005', station:'Front Floor',   jigNo:'FF352', jigName:'F/FLR ASSY JIG No.1',   newMod:'New', order:'MMTh', pic:'Rangsimun', documentType:'Flowline Layout',        poTiming:'before', planOrder:'2026-05-15', planCreation:'2026-05-20', planSend:'2026-05-28', planCheck:'2026-06-03', progress:100, status:'Completed',   step:'Completed',        comment:'Approved by Matsuo',        lastUpdated:iso() },
+    { id:'T006', station:'Front Floor',   jigNo:'FF352', jigName:'F/FLR ASSY JIG No.1',   newMod:'New', order:'MMC',  pic:'Matsuo',    documentType:'Welding Condition Sheet', poTiming:'after',  planOrder:'2026-06-20', planCreation:'2026-07-01', planSend:'2026-07-10', planCheck:'2026-07-15', progress:0,   status:'Not Started', step:'Not Started',      comment:'',                          lastUpdated:iso() },
+    { id:'T007', station:'Rear Floor',    jigNo:'RF371', jigName:'RR FLR PAN ASSY JIG',   newMod:'New', order:'MMTh', pic:'Matsuo',    documentType:'Spot Layout',            poTiming:'before', planOrder:'2026-05-18', planCreation:'2026-05-30', planSend:'2026-06-06', planCheck:'2026-06-07', progress:40,  status:'Delay',       step:'Creating',         comment:'Designer absent – delay 1wk', lastUpdated:iso() },
+    { id:'T008', station:'Rear Floor',    jigNo:'RF371', jigName:'RR FLR PAN ASSY JIG',   newMod:'New', order:'MMTh', pic:'Matsuo',    documentType:'GR Plan',                poTiming:'before', planOrder:'2026-05-18', planCreation:'2026-06-01', planSend:'2026-06-09', planCheck:'2026-06-14', progress:90,  status:'In Progress', step:'Under MMTh Check', comment:'',                          lastUpdated:iso() },
+    { id:'T009', station:'Rear Floor',    jigNo:'RF371', jigName:'RR FLR PAN ASSY JIG',   newMod:'Mod', order:'MMC',  pic:'Kurihara',  documentType:'QC Control Sheet',       poTiming:'after',  planOrder:'2026-07-01', planCreation:'2026-07-10', planSend:'2026-07-20', planCheck:'2026-07-25', progress:0,   status:'Not Started', step:'Not Started',      comment:'',                          lastUpdated:iso() },
+    { id:'T010', station:'Dash Panel',    jigNo:'DP201', jigName:'DASH PANEL ASSY JIG',   newMod:'New', order:'MMTh', pic:'Rangsimun', documentType:'Safety Matrix',          poTiming:'before', planOrder:'2026-05-25', planCreation:'2026-06-05', planSend:'2026-06-08', planCheck:'2026-06-12', progress:100, status:'Completed',   step:'Completed',        comment:'',                          lastUpdated:iso() },
+    { id:'T011', station:'Dash Panel',    jigNo:'DP201', jigName:'DASH PANEL ASSY JIG',   newMod:'New', order:'MMTh', pic:'Rangsimun', documentType:'Flowchart',              poTiming:'before', planOrder:'2026-05-25', planCreation:'2026-06-02', planSend:'2026-06-07', planCheck:'2026-06-11', progress:100, status:'Completed',   step:'Completed',        comment:'',                          lastUpdated:iso() },
+    { id:'T012', station:'Dash Panel',    jigNo:'DP202', jigName:'DASH PANEL TRIM JIG',   newMod:'Mod', order:'MMC',  pic:'Matsuo',    documentType:'Jig Planning Sheet',     poTiming:'before', planOrder:'2026-06-01', planCreation:'2026-06-08', planSend:'2026-06-12', planCheck:'2026-06-16', progress:30,  status:'In Progress', step:'Creating',         comment:'',                          lastUpdated:iso() },
+    { id:'T013', station:'Fender Shield', jigNo:'FS101', jigName:'FENDER SHIELD ASSY JIG',newMod:'New', order:'MMTh', pic:'Kurihara',  documentType:'Robot List / Gun List',  poTiming:'after',  planOrder:'2026-07-05', planCreation:'2026-07-15', planSend:'2026-07-22', planCheck:'2026-07-28', progress:0,   status:'Not Started', step:'Not Started',      comment:'',                          lastUpdated:iso() },
+    { id:'T014', station:'Main Body',     jigNo:'MB501', jigName:'MAIN BODY ASSY JIG No1', newMod:'New', order:'MMTh', pic:'Rangsimun', documentType:'DHS',                   poTiming:'before', planOrder:'2026-05-20', planCreation:'2026-06-01', planSend:'2026-06-06', planCheck:'2026-06-09', progress:75,  status:'In Progress', step:'Sent to MMTh',     comment:'Minor revision needed',     lastUpdated:iso() },
+    { id:'T015', station:'Main Body',     jigNo:'MB501', jigName:'MAIN BODY ASSY JIG No1', newMod:'New', order:'MMTh', pic:'Matsuo',    documentType:'Spot Information Sheet', poTiming:'before', planOrder:'2026-05-22', planCreation:'2026-06-03', planSend:'2026-06-10', planCheck:'2026-06-15', progress:20,  status:'In Progress', step:'Order Done',       comment:'',                          lastUpdated:iso() },
+  ];
+}
+
+// ─── Utilities ────────────────────────────────────────────────
+function iso()  { return new Date().toISOString(); }
+function genId(){ return 'T' + Date.now().toString(36).toUpperCase(); }
+
+function fmtDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return isNaN(dt) ? d : `${dt.getMonth()+1}/${dt.getDate()}`;
+}
+
+// Today at midnight for comparisons
+const _today = (function(){ const d = new Date(); d.setHours(0,0,0,0); return d; })();
+
+function isOverdue(t) {
+  if (t.status === 'Completed') return false;
+  if (!t.planCheck) return false;
+  const d = new Date(t.planCheck); d.setHours(0,0,0,0);
+  return d < _today;
+}
+
+function isDueSoon(t) {
+  if (t.status === 'Completed') return false;
+  if (!t.planCheck) return false;
+  const d = new Date(t.planCheck); d.setHours(0,0,0,0);
+  const diff = (d - _today) / 86400000;
+  return diff >= 0 && diff <= 7;
+}
+
+function uniq(field) {
+  return [...new Set(db.tasks.map(t => t[field]).filter(Boolean))].sort();
+}
+
+// ─── Badge / bar helpers ──────────────────────────────────────
+function statusBadge(s) {
+  const cls = {
+    'Completed':   'background:#d1fae5;color:#065f46',
+    'In Progress': 'background:#fef3c7;color:#92400e',
+    'Not Started': 'background:#f1f5f9;color:#64748b',
+    'Delay':       'background:#fee2e2;color:#991b1b',
+  }[s] || 'background:#f1f5f9;color:#64748b';
+  return `<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600;${cls}">${s}</span>`;
+}
+
+function poBadge(po) {
+  return po === 'before'
+    ? '<span style="padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0">Before</span>'
+    : '<span style="padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe">After</span>';
+}
+
+function barHtml(pct, color) {
+  const bg = { emerald:'#10b981', amber:'#f59e0b', red:'#ef4444', blue:'#3b82f6' }[color] || '#10b981';
+  return `<div style="width:100%;background:#f1f5f9;border-radius:4px;height:6px">
+    <div style="width:${pct}%;background:${bg};height:6px;border-radius:4px"></div></div>`;
+}
+
+function barColor(t) {
+  if (t.status === 'Delay')     return 'red';
+  if (t.status === 'Completed') return 'emerald';
+  return 'amber';
+}
+
+// ─── Toast ────────────────────────────────────────────────────
+var _toastTimer;
+function toast(msg, type) {
+  type = type || 'ok';
+  var el    = document.getElementById('toast');
+  var inner = document.getElementById('toast-inner');
+  document.getElementById('toast-msg').textContent = msg;
+  if (type === 'error') {
+    inner.style.background = '#7f1d1d';
+  } else {
+    inner.style.background = '#1e293b';
+  }
+  el.classList.remove('hidden');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function(){ el.classList.add('hidden'); }, 2800);
+}
+
+// ─── View switching ───────────────────────────────────────────
+function showView(name) {
+  document.querySelectorAll('.view').forEach(function(el){ el.classList.add('hidden'); });
+  document.querySelectorAll('.nav-btn').forEach(function(el){ el.classList.remove('nav-active'); });
+
+  document.getElementById('view-' + name).classList.remove('hidden');
+  document.getElementById('nav-'  + name).classList.add('nav-active');
+
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'matrix')    { fillFilterOpts(); renderMatrix(); }
+  if (name === 'kanban')    { fillKanbanOpts(); renderKanban(); }
+
+  updateNavStats();
+}
+
+function updateNavStats() {
+  var t = db.tasks;
+  document.getElementById('navTotal').textContent = t.length;
+  document.getElementById('navDone').textContent  = t.filter(function(x){ return x.status === 'Completed'; }).length;
+  document.getElementById('navDelay').textContent = t.filter(function(x){ return x.status === 'Delay' || isOverdue(x); }).length;
+  document.getElementById('navStats').classList.remove('hidden');
+}
+
+function refreshView() {
+  var v = document.querySelector('.view:not(.hidden)');
+  if (!v) return;
+  showView(v.id.replace('view-', ''));
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────────
+function renderDashboard() {
+  var tasks = db.tasks;
+  var total = tasks.length;
+  var cmp   = tasks.filter(function(t){ return t.status === 'Completed'; }).length;
+  var ip    = tasks.filter(function(t){ return t.status === 'In Progress'; }).length;
+  var ns    = tasks.filter(function(t){ return t.status === 'Not Started'; }).length;
+  var dl    = tasks.filter(function(t){ return t.status === 'Delay'; }).length;
+  var pct   = total ? Math.round((cmp / total) * 100) : 0;
+
+  setText('d-pct', pct + '%');
+  setStyle('d-pct-bar', 'width:' + pct + '%');
+  setText('d-cmp', cmp); setText('d-tot', total);
+  setText('d-s-cmp', cmp); setText('d-s-ip', ip);
+  setText('d-s-ns', ns);  setText('d-s-dl', dl);
+
+  // PO timing
+  var bef  = tasks.filter(function(t){ return t.poTiming === 'before'; });
+  var aft  = tasks.filter(function(t){ return t.poTiming === 'after'; });
+  var bp   = bef.length ? Math.round((bef.filter(function(t){ return t.status==='Completed'; }).length / bef.length) * 100) : 0;
+  var ap   = aft.length ? Math.round((aft.filter(function(t){ return t.status==='Completed'; }).length / aft.length) * 100) : 0;
+  setText('d-before-pct', bp + '%'); setStyle('d-before-bar', 'width:' + bp + '%'); setText('d-before-n', bef.length);
+  setText('d-after-pct',  ap + '%'); setStyle('d-after-bar',  'width:' + ap + '%'); setText('d-after-n',  aft.length);
+
+  // By PIC
+  document.getElementById('d-by-pic').innerHTML = uniq('pic').map(function(pic) {
+    var pt  = tasks.filter(function(t){ return t.pic === pic; });
+    var pp  = pt.length ? Math.round((pt.filter(function(t){ return t.status==='Completed'; }).length / pt.length) * 100) : 0;
+    return '<div><div style="display:flex;justify-content:space-between;margin-bottom:2px">'
+      + '<span style="font-size:12px;font-weight:500;color:#334155">' + pic + '</span>'
+      + '<span style="font-size:11px;color:#94a3b8">' + pp + '% (' + pt.filter(function(t){return t.status==='Completed';}).length + '/' + pt.length + ')</span>'
+      + '</div>' + barHtml(pp, 'emerald') + '</div>';
+  }).join('') || '<p style="font-size:12px;color:#cbd5e1">No data</p>';
+
+  // By Station
+  document.getElementById('d-by-station').innerHTML = uniq('station').map(function(st) {
+    var st_t = tasks.filter(function(t){ return t.station === st; });
+    var sp   = st_t.length ? Math.round((st_t.filter(function(t){ return t.status==='Completed'; }).length / st_t.length) * 100) : 0;
+    var dls  = st_t.filter(function(t){ return t.status==='Delay'; }).length;
+    return '<div><div style="display:flex;justify-content:space-between;margin-bottom:2px">'
+      + '<span style="font-size:12px;font-weight:500;color:#334155">' + st + '</span>'
+      + '<span style="font-size:11px;color:#94a3b8">' + sp + '%' + (dls ? ' <span style="color:#ef4444;font-weight:700">' + dls + '⚠</span>' : '') + '</span>'
+      + '</div>' + barHtml(sp, 'emerald') + '</div>';
+  }).join('') || '<p style="font-size:12px;color:#cbd5e1">No data</p>';
+
+  // Due soon
+  var soon = tasks.filter(isDueSoon).sort(function(a,b){ return new Date(a.planCheck)-new Date(b.planCheck); });
+  document.getElementById('d-due-soon').innerHTML = soon.length
+    ? soon.map(function(t){ return alertRowHtml(t, 'amber'); }).join('')
+    : '<p style="font-size:12px;color:#cbd5e1;text-align:center;padding:16px 0">No tasks due soon</p>';
+
+  // Overdue
+  var over = tasks.filter(isOverdue).sort(function(a,b){ return new Date(a.planCheck)-new Date(b.planCheck); });
+  document.getElementById('d-overdue').innerHTML = over.length
+    ? over.map(function(t){ return alertRowHtml(t, 'red'); }).join('')
+    : '<p style="font-size:12px;color:#cbd5e1;text-align:center;padding:16px 0">No overdue tasks</p>';
+}
+
+function alertRowHtml(t, color) {
+  var bg    = color==='red' ? '#fef2f2' : '#fffbeb';
+  var bdr   = color==='red' ? '#fee2e2' : '#fef3c7';
+  var dot   = color==='red' ? '#ef4444' : '#f59e0b';
+  var label = color==='red' ? 'Was due ' + fmtDate(t.planCheck) : 'Due ' + fmtDate(t.planCheck);
+  return '<div onclick="openDetail(\'' + t.jigNo + '\')" style="display:flex;align-items:center;gap:8px;padding:8px;background:' + bg + ';border:1px solid ' + bdr + ';border-radius:8px;cursor:pointer;margin-bottom:4px">'
+    + '<span style="width:6px;height:6px;border-radius:50%;background:' + dot + ';flex-shrink:0"></span>'
+    + '<div style="flex:1;min-width:0">'
+    + '<div style="font-size:12px;font-weight:500;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(t.jigNo) + ' — ' + escHtml(t.documentType) + '</div>'
+    + '<div style="font-size:11px;color:#94a3b8">' + escHtml(t.pic) + ' · ' + label + '</div>'
+    + '</div>' + statusBadge(t.status) + '</div>';
+}
+
+// ─── MATRIX ───────────────────────────────────────────────────
+function fillFilterOpts() {
+  fillSel('f-station', uniq('station'),      'All Stations');
+  fillSel('f-pic',     uniq('pic'),          'All PICs');
+  fillSel('f-doc',     uniq('documentType'), 'All Doc Types');
+}
+
+function fillSel(id, vals, placeholder) {
+  var el  = document.getElementById(id);
+  var cur = el.value;
+  el.innerHTML = '<option value="">' + placeholder + '</option>';
+  vals.forEach(function(v) {
+    var o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    if (v === cur) o.selected = true;
+    el.appendChild(o);
+  });
+}
+
+function getFiltered() {
+  var s  = (document.getElementById('f-search')?.value  || '').toLowerCase();
+  var st = document.getElementById('f-station')?.value || '';
+  var pi = document.getElementById('f-pic')?.value     || '';
+  var dc = document.getElementById('f-doc')?.value     || '';
+  var sx = document.getElementById('f-status')?.value  || '';
+  var po = document.getElementById('f-po')?.value      || '';
+  var nm = document.getElementById('f-nm')?.value      || '';
+
+  return db.tasks.filter(function(t) {
+    if (s  && !(t.station + ' ' + t.jigNo + ' ' + t.jigName + ' ' + t.pic + ' ' + t.documentType + ' ' + (t.comment||'')).toLowerCase().includes(s)) return false;
+    if (st && t.station      !== st) return false;
+    if (pi && t.pic          !== pi) return false;
+    if (dc && t.documentType !== dc) return false;
+    if (sx && t.status       !== sx) return false;
+    if (po && t.poTiming     !== po) return false;
+    if (nm && t.newMod       !== nm) return false;
+    return true;
+  });
+}
+
+function renderMatrix() {
+  var tasks = getFiltered();
+  document.getElementById('m-count').textContent = tasks.length;
+  var tbody = document.getElementById('m-tbody');
+
+  if (!tasks.length) {
+    tbody.innerHTML = '<tr><td colspan="16" style="text-align:center;padding:40px;font-size:13px;color:#cbd5e1">No tasks match the current filters.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = tasks.map(function(t, i) {
+    var odd        = i % 2 === 1 ? 'background:#f8fafc' : '';
+    var overBorder = isOverdue(t) ? 'border-left:3px solid #ef4444' : '';
+    var nmCls      = t.newMod === 'New'
+      ? 'background:#f5f3ff;color:#5b21b6;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600'
+      : 'background:#fff7ed;color:#c2410c;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600';
+
+    return '<tr style="border-bottom:1px solid #f1f5f9;cursor:pointer;' + odd + overBorder + '" ondblclick="openEditModal(\'' + t.id + '\')">'
+      + '<td style="padding:8px 12px;white-space:nowrap;color:#475569">' + escHtml(t.station) + '</td>'
+      + '<td style="padding:8px 12px;white-space:nowrap;font-weight:600;color:#059669;cursor:pointer" onclick="openDetail(\'' + escHtml(t.jigNo) + '\')">' + escHtml(t.jigNo) + '</td>'
+      + '<td style="padding:8px 12px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#475569" title="' + escHtml(t.jigName) + '">' + escHtml(t.jigName) + '</td>'
+      + '<td style="padding:8px 12px;white-space:nowrap"><span style="' + nmCls + '">' + escHtml(t.newMod) + '</span></td>'
+      + '<td style="padding:8px 12px;white-space:nowrap;color:#64748b">' + escHtml(t.order) + '</td>'
+      + '<td style="padding:8px 12px;white-space:nowrap;font-weight:500;color:#1e293b">' + escHtml(t.pic) + '</td>'
+      + '<td style="padding:8px 12px;white-space:nowrap;color:#475569">' + escHtml(t.documentType) + '</td>'
+      + '<td style="padding:8px 12px;white-space:nowrap">' + poBadge(t.poTiming) + '</td>'
+      + '<td style="padding:8px 12px;white-space:nowrap;color:#94a3b8">' + fmtDate(t.planOrder) + '</td>'
+      + '<td style="padding:8px 12px;white-space:nowrap;color:#94a3b8">' + fmtDate(t.planCreation) + '</td>'
+      + '<td style="padding:8px 12px;white-space:nowrap;' + (isOverdue(t)?'color:#ef4444;font-weight:700':'color:#94a3b8') + '">' + fmtDate(t.planSend) + '</td>'
+      + '<td style="padding:8px 12px;white-space:nowrap;' + (isOverdue(t)?'color:#ef4444;font-weight:700':'color:#94a3b8') + '">' + fmtDate(t.planCheck) + '</td>'
+      + '<td style="padding:8px 12px;white-space:nowrap;min-width:100px">'
+      +   '<div style="display:flex;align-items:center;gap:6px">'
+      +     '<div style="flex:1">' + barHtml(t.progress, barColor(t)) + '</div>'
+      +     '<span style="font-size:11px;color:#64748b;width:30px;text-align:right">' + t.progress + '%</span>'
+      +   '</div></td>'
+      + '<td style="padding:8px 12px;white-space:nowrap">' + statusBadge(t.status) + '</td>'
+      + '<td style="padding:8px 12px;white-space:nowrap;color:#94a3b8">' + escHtml(t.step) + '</td>'
+      + '<td style="padding:8px 12px;white-space:nowrap">'
+      +   '<button onclick="openEditModal(\'' + t.id + '\')" style="font-size:11px;color:#94a3b8;padding:3px 8px;border-radius:6px;border:none;background:none;cursor:pointer" onmouseover="this.style.color=\'#059669\'" onmouseout="this.style.color=\'#94a3b8\'">Edit</button>'
+      + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+function clearFilters() {
+  ['f-search','f-station','f-pic','f-doc','f-status','f-po','f-nm'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  renderMatrix();
+}
+
+// ─── KANBAN ───────────────────────────────────────────────────
+function fillKanbanOpts() {
+  fillSel('k-pic',     uniq('pic'),     'All PICs');
+  fillSel('k-station', uniq('station'), 'All Stations');
+}
+
+function getKanbanTasks() {
+  var s  = (document.getElementById('k-search')?.value  || '').toLowerCase();
+  var pi = document.getElementById('k-pic')?.value     || '';
+  var st = document.getElementById('k-station')?.value || '';
+  return db.tasks.filter(function(t) {
+    if (s  && !(t.jigNo + ' ' + t.jigName + ' ' + t.documentType + ' ' + t.pic).toLowerCase().includes(s)) return false;
+    if (pi && t.pic     !== pi) return false;
+    if (st && t.station !== st) return false;
+    return true;
+  });
+}
+
+var COL_STYLE = {
+  'Not Started':      { hdr: '#e2e8f0:#475569', bdg: '#94a3b8' },
+  'Order Done':       { hdr: '#e0e7ff:#3730a3', bdg: '#6366f1' },
+  'Creating':         { hdr: '#fef3c7:#92400e', bdg: '#f59e0b' },
+  'Sent to MMTh':     { hdr: '#e0f2fe:#0369a1', bdg: '#0ea5e9' },
+  'Under MMTh Check': { hdr: '#ede9fe:#4c1d95', bdg: '#8b5cf6' },
+  'Completed':        { hdr: '#d1fae5:#065f46', bdg: '#10b981' },
+  'Delay':            { hdr: '#fee2e2:#7f1d1d', bdg: '#ef4444' },
+};
+
+function renderKanban() {
+  var tasks = getKanbanTasks();
+  document.getElementById('kanban-board').innerHTML = KANBAN_COLS.map(function(col) {
+    var ct = tasks.filter(function(t){ return t.step === col; });
+    var cs = COL_STYLE[col];
+    var parts = cs.hdr.split(':');
+    var hdrBg = parts[0], hdrTxt = parts[1];
+
+    var cards = ct.map(function(t) {
+      var dotColor = t.poTiming === 'before' ? '#34d399' : '#60a5fa';
+      return '<div class="task-card" onclick="openEditModal(\'' + t.id + '\')" style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)">'
+        + '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">'
+        +   '<div style="display:flex;align-items:center;gap:6px;min-width:0">'
+        +     '<span style="width:8px;height:8px;border-radius:50%;background:' + dotColor + ';flex-shrink:0;margin-top:2px"></span>'
+        +     '<span style="font-size:12px;font-weight:700;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(t.jigNo) + '</span>'
+        +   '</div>'
+        +   (isOverdue(t) ? '<span style="color:#f87171;font-size:12px;flex-shrink:0;margin-left:4px">⚠</span>' : '')
+        + '</div>'
+        + '<div style="font-size:11px;color:#64748b;margin-bottom:8px;margin-left:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(t.documentType) + '</div>'
+        + '<div style="margin-left:14px;margin-bottom:8px">' + barHtml(t.progress, barColor(t)) + '</div>'
+        + '<div style="display:flex;justify-content:space-between;margin-left:14px">'
+        +   '<span style="font-size:11px;color:#94a3b8">' + escHtml(t.pic) + '</span>'
+        +   '<span style="font-size:11px;color:#cbd5e1">' + (t.planCheck ? 'Due ' + fmtDate(t.planCheck) : '') + '</span>'
+        + '</div>'
+        + (t.comment ? '<div style="margin-top:6px;margin-left:14px;font-size:11px;color:#94a3b8;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"' + escHtml(t.comment) + '"</div>' : '')
+        + '</div>';
+    }).join('');
+
+    return '<div class="kanban-col">'
+      + '<div style="background:' + hdrBg + ';color:' + hdrTxt + ';border-radius:10px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+      +   '<span style="font-size:12px;font-weight:700">' + col + '</span>'
+      +   '<span style="font-size:11px;background:' + cs.bdg + ';color:white;padding:2px 7px;border-radius:9999px;font-weight:700">' + ct.length + '</span>'
+      + '</div>'
+      + '<div style="display:flex;flex-direction:column;gap:8px">'
+      + (cards || '<div style="text-align:center;font-size:11px;color:#cbd5e1;padding:24px 0">Empty</div>')
+      + '</div></div>';
+  }).join('');
+}
+
+// ─── DETAIL MODAL ─────────────────────────────────────────────
+var STEPS_TIMELINE = ['Order Done','Creating','Sent to MMTh','Under MMTh Check','Completed'];
+
+function openDetail(jigNo) {
+  var tasks = db.tasks.filter(function(t){ return t.jigNo === jigNo; });
+  if (!tasks.length) return;
+
+  document.getElementById('det-title').textContent    = jigNo + ' — ' + tasks[0].jigName;
+  document.getElementById('det-subtitle').textContent = tasks[0].station + ' · ' + tasks[0].newMod + ' · ' + tasks.length + ' document(s)';
+
+  document.getElementById('det-content').innerHTML = tasks.map(function(t) {
+    var si = STEPS_TIMELINE.indexOf(t.step);
+
+    // Build timeline steps
+    var timelineParts = [];
+    STEPS_TIMELINE.forEach(function(s, i) {
+      var bg, color;
+      if (i < si)      { bg='#10b981'; color='white'; }
+      else if (i===si) { bg = t.status==='Delay' ? '#ef4444' : '#f59e0b'; color='white'; }
+      else             { bg='#e2e8f0'; color='#94a3b8'; }
+
+      var label = i < si ? '✓' : (i+1);
+      timelineParts.push(
+        '<div style="display:flex;flex-direction:column;align-items:center;min-width:0">'
+        + '<div style="width:24px;height:24px;border-radius:50%;background:' + bg + ';color:' + color + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">' + label + '</div>'
+        + '<div style="font-size:10px;color:#94a3b8;margin-top:4px;text-align:center;line-height:1.3;width:56px;word-break:break-word">' + s + '</div>'
+        + '</div>'
+      );
+      if (i < STEPS_TIMELINE.length - 1) {
+        timelineParts.push('<div style="flex:1;height:2px;background:#e2e8f0;margin-top:11px;min-width:8px"></div>');
+      }
+    });
+
+    var borderColor = t.poTiming === 'after' ? '#93c5fd' : '#6ee7b7';
+    var borderLeft  = t.poTiming === 'after' ? '4px solid #3b82f6' : '4px solid #10b981';
+
+    return '<div style="border:1px solid ' + borderColor + ';border-left:' + borderLeft + ';border-radius:12px;padding:16px;margin-bottom:12px">'
+
+      // Header
+      + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">'
+      +   '<div>'
+      +     '<span style="font-size:13px;font-weight:600;color:#1e293b">' + escHtml(t.documentType) + '</span>'
+      +     '<span style="font-size:11px;color:#94a3b8;margin-left:8px">PIC: ' + escHtml(t.pic) + '</span>'
+      +   '</div>'
+      +   '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+      +     poBadge(t.poTiming) + ' ' + statusBadge(t.status)
+      +     '<button onclick="closeModal(\'detailModal\');openEditModal(\'' + t.id + '\')" style="font-size:11px;color:#059669;font-weight:600;border:none;background:none;cursor:pointer">Edit</button>'
+      +   '</div>'
+      + '</div>'
+
+      // Timeline
+      + '<div style="display:flex;align-items:flex-start;overflow-x:auto;padding-bottom:4px;margin-bottom:12px">'
+      + timelineParts.join('')
+      + '</div>'
+
+      // Dates grid
+      + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">'
+      + [['Order',fmtDate(t.planOrder)],['Creation',fmtDate(t.planCreation)],['Send MMTh',fmtDate(t.planSend)],['Check MMTh',fmtDate(t.planCheck)]].map(function(pair) {
+          var chkStyle = pair[0]==='Check MMTh' && isOverdue(t) ? 'color:#ef4444;font-weight:700' : 'color:#1e293b;font-weight:600';
+          return '<div style="background:#f8fafc;border-radius:8px;padding:8px">'
+            + '<div style="font-size:10px;color:#94a3b8;margin-bottom:2px">' + pair[0] + '</div>'
+            + '<div style="font-size:12px;' + chkStyle + '">' + pair[1] + '</div>'
+            + '</div>';
+        }).join('')
+      + '</div>'
+
+      // Progress bar
+      + '<div style="display:flex;align-items:center;gap:8px">'
+      +   '<div style="flex:1">' + barHtml(t.progress, barColor(t)) + '</div>'
+      +   '<span style="font-size:12px;font-weight:600;color:#475569;width:32px;text-align:right">' + t.progress + '%</span>'
+      + '</div>'
+
+      + (t.comment ? '<div style="margin-top:8px;font-size:11px;color:#94a3b8;font-style:italic">"' + escHtml(t.comment) + '"</div>' : '')
+
+      + '</div>';
+  }).join('');
+
+  document.getElementById('detailModal').classList.remove('hidden');
+}
+
+// ─── TASK MODAL ───────────────────────────────────────────────
+function openAddModal() {
+  setText('modal-title', 'Add New Task');
+  document.getElementById('m-id').value = '';
+  document.getElementById('modal-del').classList.add('hidden');
+  resetForm();
+  document.getElementById('taskModal').classList.remove('hidden');
+}
+
+function openEditModal(id) {
+  var t = db.tasks.find(function(x){ return x.id === id; });
+  if (!t) return;
+
+  setText('modal-title', 'Edit Task');
+  document.getElementById('m-id').value = t.id;
+  document.getElementById('modal-del').classList.remove('hidden');
+
+  setVal('m-station',   t.station);
+  setVal('m-jigno',     t.jigNo);
+  setVal('m-jigname',   t.jigName);
+  setVal('m-newmod',    t.newMod);
+  setVal('m-order',     t.order);
+  setVal('m-pic',       t.pic);
+  setVal('m-doctype',   t.documentType);
+  setVal('m-po',        t.poTiming);
+  setVal('m-step',      t.step);
+  setVal('m-p-order',   t.planOrder    || '');
+  setVal('m-p-creation',t.planCreation || '');
+  setVal('m-p-send',    t.planSend     || '');
+  setVal('m-p-check',   t.planCheck    || '');
+  setVal('m-progress',  t.progress);
+  setVal('m-status',    t.status);
+  setVal('m-comment',   t.comment      || '');
+
+  document.getElementById('taskModal').classList.remove('hidden');
+}
+
+function saveTask() {
+  var id      = document.getElementById('m-id').value;
+  var jigNo   = document.getElementById('m-jigno').value.trim();
+  var jigName = document.getElementById('m-jigname').value.trim();
+  if (!jigNo || !jigName) { toast('Jig No and Jig Name are required', 'error'); return; }
+
+  var data = {
+    station:      document.getElementById('m-station').value,
+    jigNo: jigNo, jigName: jigName,
+    newMod:       document.getElementById('m-newmod').value,
+    order:        document.getElementById('m-order').value,
+    pic:          document.getElementById('m-pic').value,
+    documentType: document.getElementById('m-doctype').value,
+    poTiming:     document.getElementById('m-po').value,
+    step:         document.getElementById('m-step').value,
+    planOrder:    document.getElementById('m-p-order').value,
+    planCreation: document.getElementById('m-p-creation').value,
+    planSend:     document.getElementById('m-p-send').value,
+    planCheck:    document.getElementById('m-p-check').value,
+    progress:     Math.min(100, Math.max(0, parseInt(document.getElementById('m-progress').value) || 0)),
+    status:       document.getElementById('m-status').value,
+    comment:      document.getElementById('m-comment').value,
+    lastUpdated:  iso(),
+  };
+
+  if (id) {
+    var idx = db.tasks.findIndex(function(t){ return t.id === id; });
+    if (idx > -1) db.tasks[idx] = Object.assign({}, db.tasks[idx], data);
+    toast('Task updated');
+  } else {
+    data.id = genId();
+    db.tasks.push(data);
+    toast('Task added');
+  }
+  saveDB();
+  closeModal('taskModal');
+  refreshView();
+  updateNavStats();
+}
+
+function deleteTask() {
+  var id = document.getElementById('m-id').value;
+  if (!id || !confirm('Delete this task? This cannot be undone.')) return;
+  db.tasks = db.tasks.filter(function(t){ return t.id !== id; });
+  saveDB();
+  closeModal('taskModal');
+  refreshView();
+  updateNavStats();
+  toast('Task deleted');
+}
+
+function resetForm() {
+  setVal('m-station','Front Floor'); setVal('m-jigno','');    setVal('m-jigname','');
+  setVal('m-newmod','New');          setVal('m-order','MMTh'); setVal('m-pic','Rangsimun');
+  setVal('m-doctype','Spot Layout'); setVal('m-po','before');  setVal('m-step','Not Started');
+  setVal('m-p-order',''); setVal('m-p-creation',''); setVal('m-p-send',''); setVal('m-p-check','');
+  setVal('m-progress',0); setVal('m-status','Not Started'); setVal('m-comment','');
+}
+
+// ─── IMPORT / EXPORT ──────────────────────────────────────────
+function exportJSON() {
+  var blob = new Blob([JSON.stringify(db, null, 2)], { type:'application/json' });
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href   = url;
+  a.download = 'project-monitor-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Exported successfully');
+}
+
+function importJSON(evt) {
+  var file = evt.target.files[0];
+  if (!file) return;
+  var r = new FileReader();
+  r.onload = function(e) {
+    try {
+      var parsed = JSON.parse(e.target.result);
+      if (!Array.isArray(parsed.tasks)) throw new Error('bad');
+      if (!confirm('Import ' + parsed.tasks.length + ' tasks? This replaces your current data.')) return;
+      db = parsed;
+      saveDB();
+      refreshView();
+      updateNavStats();
+      toast('Imported ' + db.tasks.length + ' tasks');
+    } catch(_) { toast('Import failed: invalid JSON format', 'error'); }
+  };
+  r.readAsText(file);
+  evt.target.value = '';
+}
+
+// ─── Modal helpers ────────────────────────────────────────────
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+['taskModal','detailModal'].forEach(function(id) {
+  document.getElementById(id).addEventListener('click', function(e) {
+    if (e.target === this) closeModal(id);
+  });
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') { closeModal('taskModal'); closeModal('detailModal'); }
+});
+
+// ─── DOM shorthand ────────────────────────────────────────────
+function setText(id, val)   { var el=document.getElementById(id); if(el) el.textContent=val; }
+function setStyle(id, val)  { var el=document.getElementById(id); if(el) el.style.cssText=val; }
+function setVal(id, val)    { var el=document.getElementById(id); if(el) el.value=val; }
+
+// Escape HTML to prevent XSS when inserting user data into innerHTML
+function escHtml(s) {
+  return String(s||'')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+// ─── Init ─────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() { showView('dashboard'); });
+</script>
+
+</body>
+</html>
 
