@@ -928,27 +928,27 @@ var STATION_META = {
 
 var STATION_ORDER = ['Front Floor','Rear Floor','Dash Panel','Fender Shield','Main Body','Side Body','Roof','Underbody'];
 
-var BPD = [ // Before-PO documents — 5-stage lifecycle
-  { key:'Spot Layout',             lbl:'Spot Layout',    pic:['Kurihara',  '-',         '-','-','-'] },
-  { key:'Flowline Layout',         lbl:'Flowline Layout',pic:['Rangsimun', '-',         '-','-','-'] },
-  { key:'Flowchart',               lbl:'Flowchart',      pic:['Matsuo',    'Rangsimun', '-','-','-'] },
-  { key:'FMEA',                    lbl:'FMEA',           pic:['Matsuo',    'Rangsimun', '-','-','-'] },
-  { key:'GR Plan',                 lbl:'GR Plan',        pic:['Matsuo',    '-',         '-','-','-'] },
-  { key:'Process Plan',            lbl:'Process Plan',   pic:['Matsuo',    '-',         '-','-','-'] },
-  { key:'DHS',                     lbl:'DHS',            pic:['-',         'Kurihara',  '-','-','-'] },
-  { key:'Spot Information Sheet',  lbl:'Spot Info Sh.',  pic:['-',         'Kurihara',  '-','-','-'] },
-  { key:'Welding Condition Sheet', lbl:'Weld. Cond.',    pic:['Matsuo',    '-',         '-','-','-'] },
-  { key:'Jig Planning Sheet',      lbl:'Jig Planning',   pic:['Matsuo',    '-',         '-','-','-'] },
-  { key:'QC Control Sheet',        lbl:'QC Control',     pic:['-',         'Rangsimun', '-','-','-'] },
+var BPD = [ // Before-PO documents — 4-stage lifecycle
+  { key:'Spot Layout',             lbl:'Spot Layout',    pic:['Kurihara',  '-',         '-','-'] },
+  { key:'Flowline Layout',         lbl:'Flowline Layout',pic:['Rangsimun', '-',         '-','-'] },
+  { key:'Flowchart',               lbl:'Flowchart',      pic:['Matsuo',    'Rangsimun', '-','-'] },
+  { key:'FMEA',                    lbl:'FMEA',           pic:['Matsuo',    'Rangsimun', '-','-'] },
+  { key:'GR Plan',                 lbl:'GR Plan',        pic:['Matsuo',    '-',         '-','-'] },
+  { key:'Process Plan',            lbl:'Process Plan',   pic:['Matsuo',    '-',         '-','-'] },
+  { key:'DHS',                     lbl:'DHS',            pic:['-',         'Kurihara',  '-','-'] },
+  { key:'Spot Information Sheet',  lbl:'Spot Info Sh.',  pic:['-',         'Kurihara',  '-','-'] },
+  { key:'Welding Condition Sheet', lbl:'Weld. Cond.',    pic:['Matsuo',    '-',         '-','-'] },
+  { key:'Jig Planning Sheet',      lbl:'Jig Planning',   pic:['Matsuo',    '-',         '-','-'] },
+  { key:'QC Control Sheet',        lbl:'QC Control',     pic:['-',         'Rangsimun', '-','-'] },
 ];
 
-var APD = [ // After-PO documents — 4-stage lifecycle
-  { key:'Robot List / Gun List', lbl:'Robot/Gun List', pic:['-','Kurihara','-','-'] },
-  { key:'Safety Matrix',         lbl:'Safety Matrix',  pic:['-','Kurihara','-','-'] },
+var APD = [ // After-PO documents — 3-stage lifecycle
+  { key:'Robot List / Gun List', lbl:'Robot/Gun List', pic:['-','Kurihara','-'] },
+  { key:'Safety Matrix',         lbl:'Safety Matrix',  pic:['-','Kurihara','-'] },
 ];
 
-var S5 = ['Order','Creation','Send MMTh','Chk MMTh','Prog'];
-var S4 = ['Creation','Send MMTh','Chk MMTh','Prog'];
+var S5 = ['Order','Creation','Send MMTh','Chk MMTh'];
+var S4 = ['Creation','Send MMTh','Chk MMTh'];
 
 var STEP_SEQ = ['Not Started','Order Done','Creating','Sent to MMTh','Under MMTh Check','Completed','Delay'];
 
@@ -971,20 +971,11 @@ function s4done(task, si) {
   return false;
 }
 
-function msCell(task, field, done, isProg) {
-  if (isProg) {
-    var pct = task.progress || 0;
-    var clr = task.status === 'Completed' ? '#10b981' : task.status === 'Delay' ? '#ef4444' : '#f59e0b';
-    return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px">'
-      + '<span style="font-size:11px;font-weight:700;color:#334155">' + pct + '%</span>'
-      + '<div style="width:36px;height:4px;background:#e2e8f0;border-radius:2px">'
-      + '<div style="width:' + pct + '%;height:4px;background:' + clr + ';border-radius:2px"></div>'
-      + '</div></div>';
-  }
+function msCell(task, field, done) {
   var d = task[field];
   if (!d) return '<span style="color:#e2e8f0">—</span>';
-  var sym = done ? '●' : '〇', color = done ? '#059669' : '#64748b', fw = done ? '700' : '400';
-  return '<span style="color:' + color + ';font-weight:' + fw + ';white-space:nowrap">' + sym + fmtDate(d) + '</span>';
+  var color = done ? '#059669' : '#64748b', fw = done ? '700' : '400';
+  return '<span style="color:' + color + ';font-weight:' + fw + ';white-space:nowrap">' + fmtDate(d) + '</span>';
 }
 
 function fillFilterOpts() {
@@ -1027,7 +1018,7 @@ function renderMatrix() {
     grouped[j.station].push(j);
   });
 
-  var BC = BPD.length * 5, AC = APD.length * 4, FC = 5, TC = FC + BC + AC;
+  var BC = BPD.length * S5.length, AC = APD.length * S4.length, FC = 5, TC = FC + BC + AC;
   var rows = [];
 
   // ── Title row
@@ -1050,10 +1041,10 @@ function renderMatrix() {
     + '<td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">N/M</td>'
     + '<td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center">Order</td>';
   BPD.forEach(function(d) {
-    r3 += '<td colspan="5" style="padding:5px 6px;border:1px solid #6ee7b7;text-align:center;background:#ecfdf5;color:#065f46">' + d.lbl + '</td>';
+    r3 += '<td colspan="' + S5.length + '" style="padding:5px 6px;border:1px solid #6ee7b7;text-align:center;background:#ecfdf5;color:#065f46">' + d.lbl + '</td>';
   });
   APD.forEach(function(d) {
-    r3 += '<td colspan="4" style="padding:5px 6px;border:1px solid #93c5fd;text-align:center;background:#eff6ff;color:#1e40af">' + d.lbl + '</td>';
+    r3 += '<td colspan="' + S4.length + '" style="padding:5px 6px;border:1px solid #93c5fd;text-align:center;background:#eff6ff;color:#1e40af">' + d.lbl + '</td>';
   });
   r3 += '</tr>';
   rows.push(r3);
@@ -1062,13 +1053,13 @@ function renderMatrix() {
   var r4 = '<tr style="background:#f8fafc;font-size:10px;font-weight:600;color:#64748b">'
     + '<td colspan="' + FC + '" style="border:1px solid #e2e8f0"></td>';
   BPD.forEach(function() {
-    S5.forEach(function(lbl, si) {
-      r4 += '<td style="padding:3px 5px;border:1px solid #d1fae5;text-align:center;' + (si===4?'background:#f0fdf4;':'') + '">' + lbl + '</td>';
+    S5.forEach(function(lbl) {
+      r4 += '<td style="padding:3px 5px;border:1px solid #d1fae5;text-align:center">' + lbl + '</td>';
     });
   });
   APD.forEach(function() {
-    S4.forEach(function(lbl, si) {
-      r4 += '<td style="padding:3px 5px;border:1px solid #bfdbfe;text-align:center;' + (si===3?'background:#f0f8ff;':'') + '">' + lbl + '</td>';
+    S4.forEach(function(lbl) {
+      r4 += '<td style="padding:3px 5px;border:1px solid #bfdbfe;text-align:center">' + lbl + '</td>';
     });
   });
   r4 += '</tr>';
@@ -1124,15 +1115,14 @@ function renderMatrix() {
         var t = jig.tasks[doc.key];
         var bdr = '1px solid #ecfdf5';
         if (!t) {
-          for (var si = 0; si < 5; si++) {
-            row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center;' + (si===4?'background:#f7fef7;':'') + '"><span style="color:#e2e8f0">—</span></td>';
+          for (var si = 0; si < S5.length; si++) {
+            row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center"><span style="color:#e2e8f0">—</span></td>';
           }
         } else {
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planOrder',   s5done(t,0),false) + '</td>';
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCreation',s5done(t,1),false) + '</td>';
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planSend',    s5done(t,2),false) + '</td>';
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCheck',   s5done(t,3),false) + '</td>';
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center;background:#f0fdf4">' + msCell(t,null,false,true) + '</td>';
+          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planOrder',   s5done(t,0)) + '</td>';
+          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCreation',s5done(t,1)) + '</td>';
+          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planSend',    s5done(t,2)) + '</td>';
+          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCheck',   s5done(t,3)) + '</td>';
         }
       });
 
@@ -1140,14 +1130,13 @@ function renderMatrix() {
         var t = jig.tasks[doc.key];
         var bdr = '1px solid #dbeafe';
         if (!t) {
-          for (var si = 0; si < 4; si++) {
-            row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center;' + (si===3?'background:#f0f8ff;':'') + '"><span style="color:#e2e8f0">—</span></td>';
+          for (var si = 0; si < S4.length; si++) {
+            row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center"><span style="color:#e2e8f0">—</span></td>';
           }
         } else {
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCreation',s4done(t,0),false) + '</td>';
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planSend',    s4done(t,1),false) + '</td>';
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCheck',   s4done(t,2),false) + '</td>';
-          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center;background:#eff6ff">' + msCell(t,null,false,true) + '</td>';
+          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCreation',s4done(t,0)) + '</td>';
+          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planSend',    s4done(t,1)) + '</td>';
+          row += '<td style="padding:5px 6px;border:' + bdr + ';text-align:center">' + msCell(t,'planCheck',   s4done(t,2)) + '</td>';
         }
       });
 
