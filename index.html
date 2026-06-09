@@ -4,8 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Project Monitor — Production Engineering</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    * { font-family: 'Nunito', sans-serif; }
     /* ---- Scrollbar ---- */
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: #f1f5f9; }
@@ -772,7 +776,12 @@ function genId(){ return 'T' + Date.now().toString(36).toUpperCase(); }
 function fmtDate(d) {
   if (!d) return '—';
   const dt = new Date(d);
-  return isNaN(dt) ? d : `${dt.getMonth()+1}/${dt.getDate()}`;
+  if (isNaN(dt)) return d;
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const yy  = String(dt.getFullYear()).slice(-2);
+  const mmm = MONTHS[dt.getMonth()];
+  const dd  = String(dt.getDate()).padStart(2, '0');
+  return `${yy}-${mmm}-${dd}`;
 }
 
 // Today at midnight for comparisons
